@@ -87,8 +87,11 @@ async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknow
 /** Route handler context. */
 export interface RouteContext {
   store: WereadStore
-  /** Host directory picker (native = OS folder chooser); optional. */
-  directoryPicker?: NativeDirectoryPicker | undefined
+  /**
+   * Lazily resolve the host directory picker at request time (by then every
+   * plugin is loaded, so the picker service is guaranteed registered).
+   */
+  getPicker?: () => NativeDirectoryPicker | undefined
 }
 
 /** Build the api client from the store's current key. */
@@ -103,7 +106,7 @@ async function apiFor(store: WereadStore): Promise<WereadApi> {
  * @returns the route list.
  */
 export function makeRoutes(deps: RouteContext) {
-  const { store, directoryPicker } = deps
+  const { store, getPicker } = deps
 
   const guard = (req: IncomingMessage, res: ServerResponse, method: string): boolean => {
     if (!isLoopbackRequest(req)) {
@@ -227,7 +230,7 @@ export function makeRoutes(deps: RouteContext) {
       handler: async (req: IncomingMessage, res: ServerResponse) => {
         if (!guard(req, res, 'POST')) return
         try {
-          const capability = directoryPicker?.capability()
+          const capability = getPicker?.()?.capability()
           if (capability === undefined) {
             writeJson(res, 200, { ok: false, unsupported: true, message: '当前环境没有目录选择服务，请手动输入路径。' })
             return

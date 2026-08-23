@@ -32,8 +32,11 @@ export declare const WEREAD_API: {
 /** Route handler context. */
 export interface RouteContext {
     store: WereadStore;
-    /** Host directory picker (native = OS folder chooser); optional. */
-    directoryPicker?: NativeDirectoryPicker | undefined;
+    /**
+     * Lazily resolve the host directory picker at request time (by then every
+     * plugin is loaded, so the picker service is guaranteed registered).
+     */
+    getPicker?: () => NativeDirectoryPicker | undefined;
 }
 /**
  * Build every /api/weread-export route (exact paths).

@@ -88,15 +88,16 @@ export function apply(ctx: Context, config?: Config): void {
     )
     disposeRoutes = ctx.effect(
       () => {
-        // The directory picker is optional (hosts without the service fall
-        // back to manual path input); grab it defensively.
-        let picker: NativeDirectoryPicker | undefined
-        try {
-          picker = (ctx as unknown as { directoryPicker?: NativeDirectoryPicker }).directoryPicker
-        } catch {
-          picker = undefined
+        // The directory picker is optional and may be registered after this
+        // plugin's apply — resolve it lazily per request instead.
+        const getPicker = (): NativeDirectoryPicker | undefined => {
+          try {
+            return (ctx as unknown as { directoryPicker?: NativeDirectoryPicker }).directoryPicker
+          } catch {
+            return undefined
+          }
         }
-        const disposers = makeRoutes({ store, directoryPicker: picker }).map((route) => ctx.webServer.register(route))
+        const disposers = makeRoutes({ store, getPicker }).map((route) => ctx.webServer.register(route))
         return () => { for (const dispose of disposers) dispose() }
       },
       'weread-export: routes',
