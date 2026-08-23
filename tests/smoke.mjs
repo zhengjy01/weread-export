@@ -1,0 +1,166 @@
+/**
+ * dsh-weread smoke tests — pure helpers, credential store, and the gateway
+ * client's error paths (fetch stubbed). Run: node tests/smoke.mjs
+ */
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import assert from 'node:assert/strict'
+import {
+  WereadStore, WereadApi, WereadApiError, mask,
+  formatDate, formatDuration, formatRating, deepLink, buildNotesMarkdown, buildFlomoMemo,
+  emptyCache, readCache, writeCache, buildTaggedContent, shelfLine, notebookLines,
+} from '../lib/index.js'
+
+let failures = 0
+function check(label, fn) {
+  try {
+    fn()
+    console.log('  ✔ ' + label)
+  } catch (error) {
+    failures += 1
+    console.error('  ✘ ' + label + ': ' + (error instanceof Error ? error.message : error))
+  }
+}
+
+console.log('helpers')
+check('formatDuration', () => {
+  assert.equal(formatDuration(90), '1分钟')
+  assert.equal(formatDuration(3661), '1小时1分钟')
+  assert.equal(formatDuration(7200), '2小时')
+  assert.equal(formatDuration(0), '0分钟')
+})
+check('formatRating', () => {
+  // the gateway returns a 0-100 score; display as 0-10
+  assert.equal(formatRating(89), '8.9')
+  assert.equal(formatRating(45), '4.5')
+  assert.equal(formatRating(0), '')
+  assert.equal(formatRating(undefined), '')
+})
+check('formatDate', () => {
+  assert.equal(formatDate(1756800000), '2025-09-02')
+  assert.equal(formatDate(0), '')
+  assert.equal(formatDate(undefined), '')
+})
+check('deepLink', () => {
+  assert.equal(deepLink('123', ''), 'https://weread.qq.com/web/bookDetail/123')
+  assert.equal(deepLink('123', 'https://weread.qq.com/web/reader/x'), 'https://weread.qq.com/web/reader/x')
+})
+check('mask', () => {
+  assert.equal(mask('wrk-abcdefghijkl'), 'wrk-****ijkl')
+  assert.equal(mask(''), '')
+})
+
+console.log('markdown builders')
+check('buildNotesMarkdown', () => {
+  const md = buildNotesMarkdown('三体', '刘慈欣', [
+    { bookmarkId: 'b1', chapterUid: 2, markText: '给岁月以文明', createTime: 1756800000 },
+  ], [
+    { review: { reviewId: 'r1', content: '神作', createTime: 1756800000, chapterName: '序章' } },
+  ], [{ chapterUid: 2, title: '第二章 台球' }])
+  assert.ok(md.includes('《三体》'), md)
+  assert.ok(md.includes('给岁月以文明'), md)
+  assert.ok(md.includes('第二章 台球'), md)
+  assert.ok(md.includes('神作'), md)
+  assert.ok(md.includes('## 划线 1 条'), md)
+  assert.ok(md.includes('## 想法 1 条'), md)
+})
+check('buildFlomoMemo', () => {
+  const memo = buildFlomoMemo('三体', [
+    { markText: '给岁月以文明', chapterUid: 1 },
+    { markText: '弱小和无知不是生存的障碍', chapterUid: 2 },
+  ], [{ chapterUid: 1, title: '第一章' }, { chapterUid: 2, title: '第二章' }], 5, 2)
+  assert.ok(memo.includes('共 5 条'), memo)
+  assert.ok(memo.includes('仅导出前 2 条'), memo)
+})
+check('buildTaggedContent', () => {
+  assert.equal(buildTaggedContent('hello', '读书笔记 微信读书'), 'hello #读书笔记 #微信读书')
+  assert.equal(buildTaggedContent('hello', '#读书笔记'), 'hello #读书笔记')
+})
+check('shelfLine finishReading 1/0', () => {
+  assert.ok(shelfLine({ bookId: '1', title: 'A', author: 'B', finishReading: 1 }, new Map()).includes('已读完'))
+  assert.ok(!shelfLine({ bookId: '1', title: 'A', author: 'B', finishReading: 0 }, new Map()).includes('已读完'))
+  const progress = new Map([['1', 30]])
+  assert.ok(shelfLine({ bookId: '1', title: 'A', author: 'B' }, progress).includes('30%'))
+})
+check('notebookLines count mapping', () => {
+  // noteCount=划线, reviewCount=想法, bookmarkCount=书签; 总=三者之和
+  const lines = notebookLines([{ bookId: '1', book: { title: 'T' }, reviewCount: 2, noteCount: 5, bookmarkCount: 1, readingProgress: 40 }])
+  assert.equal(lines.length, 1)
+  assert.ok(lines[0].includes('共 8 条'), lines[0])
+  assert.ok(lines[0].includes('划线 5 · 想法 2 · 书签 1'), lines[0])
+  assert.ok(lines[0].includes('进度 40%'), lines[0])
+})
+
+console.log('cache round-trip')
+check('read/write/empty', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'dsh-weread-'))
+  process.env.DSH_WEREAD_CACHE = path.join(dir, 'cache.json')
+  try {
+    assert.deepEqual(await readCache(), emptyCache())
+    await writeCache({ updatedAt: 'now', shelfBooks: [{ bookId: '1', title: 'T' }], albumsCount: 0, mpCount: 0, notebooks: [] })
+    const cache = await readCache()
+    assert.equal(cache.updatedAt, 'now')
+    assert.equal(cache.shelfBooks.length, 1)
+  } finally {
+    delete process.env.DSH_WEREAD_CACHE
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+console.log('store')
+check('patch/view/mask', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'dsh-weread-'))
+  process.env.DSH_WEREAD_CONFIG = path.join(dir, 'config.json')
+  try {
+    const store = new WereadStore()
+    let view = await store.view()
+    assert.equal(view.configured, false)
+    view = await store.patch({ apiKey: 'wrk-test123456789', defaultFlomoTag: '读书笔记' })
+    assert.equal(view.configured, true)
+    assert.equal(view.apiKeyMasked, 'wrk-****6789')
+    assert.equal(view.defaultFlomoTag, '读书笔记')
+    view = await store.patch({ reset: true })
+    assert.equal(view.configured, false)
+  } finally {
+    delete process.env.DSH_WEREAD_CONFIG
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+console.log('gateway client (fetch stubbed)')
+check('errcode surfacing', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async () => new Response(JSON.stringify({ errcode: 4002, errmsg: '参数错误' }), { status: 200 })
+  try {
+    const api = new WereadApi('wrk-test')
+    await assert.rejects(api.search('三体'), (err) => {
+      assert.ok(err instanceof WereadApiError)
+      assert.equal(err.message, '参数错误')
+      assert.equal(err.code, 4002)
+      return true
+    })
+  } finally {
+    globalThis.fetch = original
+  }
+})
+check('upgrade_info surfacing', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async () => new Response(JSON.stringify({ upgrade_info: { message: '请升级到 1.1.0' } }), { status: 200 })
+  try {
+    const api = new WereadApi('wrk-test')
+    await assert.rejects(api.list(), /需要升级/)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+check('unconfigured key', async () => {
+  const api = new WereadApi('')
+  await assert.rejects(api.shelf(), /未配置微信读书 API Key/)
+})
+
+if (failures > 0) {
+  console.error(`\n${failures} check(s) failed`)
+  process.exit(1)
+}
+console.log('\nAll smoke checks passed.')
