@@ -1,10 +1,12 @@
 /**
  * WeRead settings panel — rendered inside the web settings page
- * (settings.section entry). Connection setup (Skills API key), export
- * preferences (destination flomo/local/Notion, per-export limit, local dir,
- * Notion token + target page, LLM prompt processing with a user-editable
- * template), manual sync, and a quick multi-target export. Plain React,
- * inline styles only.
+ * (settings.section entry).
+ *
+ * Layout: each export target configures its own parameters in its own card
+ * (flomo: tag + URL/key; Notion: token + target page; local: directory),
+ * and the quick-export card only picks a destination (flomo / Notion /
+ * local / all) — no "default vs this-run" duplication. Plain React, inline
+ * styles only.
  */
 import { useCallback, useEffect, useState } from 'react'
 import {
@@ -28,7 +30,6 @@ const s = {
     color: 'inherit',
   } as const,
   title: { fontWeight: 600, fontSize: '13px', margin: 0 } as const,
-  /** One visually separated group card. */
   group: {
     display: 'flex',
     flexDirection: 'column',
@@ -47,14 +48,6 @@ const s = {
     margin: 0,
     paddingBottom: '6px',
     borderBottom: '1px solid rgba(128,128,128,0.18)',
-  } as const,
-  subTitle: {
-    fontWeight: 600,
-    fontSize: '12px',
-    opacity: 0.9,
-    margin: '4px 0 0',
-    paddingTop: '8px',
-    borderTop: '1px dashed rgba(128,128,128,0.25)',
   } as const,
   status: { fontSize: '12px', opacity: 0.85, whiteSpace: 'pre-wrap' } as const,
   statusWarn: { fontSize: '12px', opacity: 0.9, color: '#c9763a' } as const,
@@ -118,47 +111,46 @@ const s = {
 function statusText(view: WereadStatusView | null): string {
   if (view === null) return '加载中…'
   if (!view.configured) {
-    return '未配置 — 打开 https://weread.qq.com/r/weread-skills，用微信读书账号登录后点击「创建 Key」并复制（wrk- 开头），粘贴到上方输入框。'
+    return '未配置 — 打开 https://weread.qq.com/r/weread-skills，用微信读书账号登录后点击「创建 Key」并复制（wrk- 开头），粘贴到「① 连接」卡片。'
   }
-  const destLabel = view.exportDest === 'local' ? '本地文件' : (view.exportDest === 'notion' ? 'Notion' : 'flomo')
   return (
-    '已配置 · Key ' + view.apiKeyMasked +
-    '\n默认导出目标 ' + destLabel + ' · 导出条数 ' + (view.exportLimit === 0 ? '全部' : view.exportLimit + ' 条') +
-    ' · 默认标签 #' + view.defaultFlomoTag +
-    '\nprompt 处理 ' + (view.usePrompt ? '开（' + (view.llmConfigured ? view.llmModel + ' @ ' + view.llmBaseUrl : 'LLM 未配置') + '）' : '关') +
+    '已配置 · Key ' + view.apiKeyMasked + ' · 导出条数 ' + (view.exportLimit === 0 ? '全部' : view.exportLimit + ' 条') +
+    '\nflomo ' + (view.flomoConfigured ? '已配置（' + view.flomoSource + ' ' + view.flomoMasked + '）' : '未配置') +
     ' · Notion ' + (view.notionConfigured ? '已配置' + (view.notionTargetPageId !== '' ? ' + 目标页' : '（未填目标页）') : '未配置') +
-    ' · flomo ' + (view.flomoConfigured ? '已配置（' + view.flomoSource + ' ' + view.flomoMasked + '）' : '未配置') +
-    ' · 缓存书架 ' + view.cachedShelfBooks + ' 本 / 有笔记 ' + view.cachedNoteBooks + ' 本' +
-    (view.lastSyncAt !== '' ? ' · 最近同步 ' + view.lastSyncAt : '')
+    ' · 本地 ' + (view.localExportDir !== '' ? '已配置' : '未配置') +
+    ' · prompt ' + (view.usePrompt ? '开（' + (view.llmConfigured ? view.llmModel : 'LLM 未配置') + '）' : '关') +
+    ' · 缓存书架 ' + view.cachedShelfBooks + ' 本 / 有笔记 ' + view.cachedNoteBooks + ' 本'
   )
 }
 
 /** The WeRead settings panel component. */
 export function WereadSettingsPanel(): JSX.Element {
   const [view, setView] = useState<WereadStatusView | null>(null)
+  // ① connection
   const [apiKey, setApiKey] = useState('')
-  const [defaultFlomoTag, setDefaultFlomoTag] = useState('')
   const [limitChoice, setLimitChoice] = useState('20')
   const [customLimit, setCustomLimit] = useState('')
-  const [exportDest, setExportDest] = useState('flomo')
-  const [localExportDir, setLocalExportDir] = useState('')
-  const [notionToken, setNotionToken] = useState('')
+  // ② flomo
+  const [defaultFlomoTag, setDefaultFlomoTag] = useState('')
   const [flomoWebhookUrl, setFlomoWebhookUrl] = useState('')
   const [flomoApiKey, setFlomoApiKey] = useState('')
+  // ③ notion
+  const [notionToken, setNotionToken] = useState('')
   const [notionTargetPageId, setNotionTargetPageId] = useState('')
+  // ④ local
+  const [localExportDir, setLocalExportDir] = useState('')
+  // ⑤ AI
   const [usePrompt, setUsePrompt] = useState(false)
   const [llmBaseUrl, setLlmBaseUrl] = useState('')
   const [llmApiKey, setLlmApiKey] = useState('')
   const [llmModel, setLlmModel] = useState('')
   const [exportPrompt, setExportPrompt] = useState('')
+  // shared + quick export
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [books, setBooks] = useState<WereadBook[]>([])
   const [bookId, setBookId] = useState('')
-  // Per-export (this run) controls.
-  const [destNow, setDestNow] = useState('')
-  const [localDirNow, setLocalDirNow] = useState('')
-  const [flomoTagNow, setFlomoTagNow] = useState('')
+  const [destNow, setDestNow] = useState('flomo')
   const [usePromptNow, setUsePromptNow] = useState<boolean | null>(null)
 
   /** Map the persisted exportLimit to the choice selector. */
@@ -173,12 +165,10 @@ export function WereadSettingsPanel(): JSX.Element {
       const next = await api.getStatus()
       setView(next)
       setDefaultFlomoTag((prev) => prev === '' ? next.defaultFlomoTag : prev)
-      setFlomoTagNow((prev) => prev === '' ? next.defaultFlomoTag : prev)
       setLimitChoice(limitFromView(next.exportLimit))
       if (![0, 20, 50, 100].includes(next.exportLimit)) setCustomLimit(String(next.exportLimit))
-      setExportDest(next.exportDest)
-      setLocalExportDir(next.localExportDir)
       setNotionTargetPageId(next.notionTargetPageId)
+      setLocalExportDir(next.localExportDir)
       setUsePrompt(next.usePrompt)
       setLlmBaseUrl(next.llmBaseUrl)
       setLlmModel(next.llmModel)
@@ -215,36 +205,112 @@ export function WereadSettingsPanel(): JSX.Element {
     return Number(limitChoice) || 0
   }
 
-  const saveConfig = async (): Promise<void> => {
+  const afterSave = async (okMessage: string): Promise<void> => {
+    setView(await api.getStatus())
+    setMessage(okMessage)
+    setApiKey('')
+    setFlomoWebhookUrl('')
+    setFlomoApiKey('')
+    setNotionToken('')
+    setLlmApiKey('')
+  }
+
+  /** ① connection: API key + export limit. */
+  const saveMainConfig = async (): Promise<void> => {
     setBusy(true)
     setMessage('')
     try {
       const patch: Record<string, unknown> = {}
       if (apiKey.trim() !== '') patch.apiKey = apiKey.trim()
-      if (defaultFlomoTag.trim() !== '') patch.defaultFlomoTag = defaultFlomoTag.trim()
       patch.exportLimit = resolveExportLimit()
-      patch.exportDest = exportDest
-      if (localExportDir.trim() !== '') patch.localExportDir = localExportDir.trim()
-      if (notionToken.trim() !== '') patch.notionToken = notionToken.trim()
-      if (notionTargetPageId.trim() !== '') patch.notionTargetPageId = notionTargetPageId.trim()
+      const next: WereadConfigView = await api.setConfig(patch)
+      setMessage(next.configured ? '配置已保存。' : '配置未保存完整：缺少 API Key。')
+      await afterSave('')
+    } catch (error) {
+      setMessage('保存失败: ' + String(error instanceof Error ? error.message : error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** ② flomo: tag + URL / key. */
+  const saveFlomoConfig = async (): Promise<void> => {
+    setBusy(true)
+    setMessage('')
+    try {
+      const patch: Record<string, unknown> = {}
+      if (defaultFlomoTag.trim() !== '') patch.defaultFlomoTag = defaultFlomoTag.trim()
       if (flomoWebhookUrl.trim() !== '') patch.flomoWebhookUrl = flomoWebhookUrl.trim()
       if (flomoApiKey.trim() !== '') patch.flomoApiKey = flomoApiKey.trim()
-      patch.usePrompt = usePrompt
+      await api.setConfig(patch)
+      await afterSave('flomo 配置已保存。')
+    } catch (error) {
+      setMessage('保存失败: ' + String(error instanceof Error ? error.message : error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** ③ notion: token + target page. */
+  const saveNotionConfig = async (): Promise<void> => {
+    setBusy(true)
+    setMessage('')
+    try {
+      const patch: Record<string, unknown> = {}
+      if (notionToken.trim() !== '') patch.notionToken = notionToken.trim()
+      if (notionTargetPageId.trim() !== '') patch.notionTargetPageId = notionTargetPageId.trim()
+      await api.setConfig(patch)
+      await afterSave('Notion 配置已保存。')
+    } catch (error) {
+      setMessage('保存失败: ' + String(error instanceof Error ? error.message : error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** ④ local: export directory. */
+  const saveLocalConfig = async (): Promise<void> => {
+    setBusy(true)
+    setMessage('')
+    try {
+      const patch: Record<string, unknown> = {}
+      if (localExportDir.trim() !== '') patch.localExportDir = localExportDir.trim()
+      await api.setConfig(patch)
+      await afterSave('本地导出目录已保存。')
+    } catch (error) {
+      setMessage('保存失败: ' + String(error instanceof Error ? error.message : error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** ⑤ AI: prompt toggle + LLM config + template. */
+  const saveAIConfig = async (): Promise<void> => {
+    setBusy(true)
+    setMessage('')
+    try {
+      const patch: Record<string, unknown> = { usePrompt }
       if (llmBaseUrl.trim() !== '') patch.llmBaseUrl = llmBaseUrl.trim()
       if (llmApiKey.trim() !== '') patch.llmApiKey = llmApiKey.trim()
       if (llmModel.trim() !== '') patch.llmModel = llmModel.trim()
       if (exportPrompt.trim() !== '') patch.exportPrompt = exportPrompt
-      const next: WereadConfigView = await api.setConfig(patch)
-      const status = await api.getStatus()
-      setView(status)
-      setMessage(next.configured ? '配置已保存。' : '配置未保存完整：缺少 API Key。')
-      setApiKey('')
-      setNotionToken('')
-      setLlmApiKey('')
-      setFlomoWebhookUrl('')
-      setFlomoApiKey('')
+      await api.setConfig(patch)
+      await afterSave('AI 配置已保存。')
     } catch (error) {
       setMessage('保存失败: ' + String(error instanceof Error ? error.message : error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const clearConfig = async (): Promise<void> => {
+    setBusy(true)
+    setMessage('')
+    try {
+      await api.setConfig({ reset: true })
+      await afterSave('已清除全部配置。')
+    } catch (error) {
+      setMessage('清除失败: ' + String(error instanceof Error ? error.message : error))
     } finally {
       setBusy(false)
     }
@@ -255,10 +321,22 @@ export function WereadSettingsPanel(): JSX.Element {
     setMessage('')
     try {
       await api.setConfig({ flomoReset: true })
-      setView(await api.getStatus())
-      setMessage('已清除 flomo 配置。')
+      await afterSave('已清除 flomo 配置。')
     } catch (error) {
       setMessage('清除失败: ' + String(error instanceof Error ? error.message : error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const runTest = async (): Promise<void> => {
+    setBusy(true)
+    setMessage('测试中…')
+    try {
+      const result = await api.test()
+      setMessage(result.ok ? result.message : '测试失败: ' + result.message)
+    } catch (error) {
+      setMessage('测试失败: ' + String(error instanceof Error ? error.message : error))
     } finally {
       setBusy(false)
     }
@@ -269,11 +347,12 @@ export function WereadSettingsPanel(): JSX.Element {
     setBusy(true)
     setMessage('测试中…（会向 flomo 发送一条测试 MEMO）')
     try {
-      if (flomoWebhookUrl.trim() !== '' || flomoApiKey.trim() !== '') {
-        await api.setConfig({
-          flomoWebhookUrl: flomoWebhookUrl.trim() !== '' ? flomoWebhookUrl.trim() : undefined,
-          flomoApiKey: flomoApiKey.trim() !== '' ? flomoApiKey.trim() : undefined,
-        })
+      if (defaultFlomoTag.trim() !== '' || flomoWebhookUrl.trim() !== '' || flomoApiKey.trim() !== '') {
+        const patch: Record<string, unknown> = {}
+        if (defaultFlomoTag.trim() !== '') patch.defaultFlomoTag = defaultFlomoTag.trim()
+        if (flomoWebhookUrl.trim() !== '') patch.flomoWebhookUrl = flomoWebhookUrl.trim()
+        if (flomoApiKey.trim() !== '') patch.flomoApiKey = flomoApiKey.trim()
+        await api.setConfig(patch)
         setFlomoWebhookUrl('')
         setFlomoApiKey('')
         setView(await api.getStatus())
@@ -293,42 +372,15 @@ export function WereadSettingsPanel(): JSX.Element {
     setMessage('测试中…')
     try {
       if (notionToken.trim() !== '' || notionTargetPageId.trim() !== '') {
-        await api.setConfig({
-          notionToken: notionToken.trim() !== '' ? notionToken.trim() : undefined,
-          notionTargetPageId: notionTargetPageId.trim() !== '' ? notionTargetPageId.trim() : undefined,
-        })
+        const patch: Record<string, unknown> = {}
+        if (notionToken.trim() !== '') patch.notionToken = notionToken.trim()
+        if (notionTargetPageId.trim() !== '') patch.notionTargetPageId = notionTargetPageId.trim()
+        await api.setConfig(patch)
         setNotionToken('')
         setView(await api.getStatus())
       }
       const result = await api.testNotion()
       setMessage(result.ok ? '✅ ' + result.message : '测试失败: ' + result.message)
-    } catch (error) {
-      setMessage('测试失败: ' + String(error instanceof Error ? error.message : error))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const clearConfig = async (): Promise<void> => {
-    setBusy(true)
-    setMessage('')
-    try {
-      const next: WereadConfigView = await api.setConfig({ reset: true })
-      setView({ ...next, flomoConfigured: view?.flomoConfigured ?? false, flomoSource: view?.flomoSource ?? '', flomoMasked: view?.flomoMasked ?? '', flomoConfigPath: view?.flomoConfigPath ?? '', cachedShelfBooks: view?.cachedShelfBooks ?? 0, cachedNoteBooks: view?.cachedNoteBooks ?? 0, cacheUpdatedAt: view?.cacheUpdatedAt ?? '' })
-      setMessage('已清除配置。')
-    } catch (error) {
-      setMessage('清除失败: ' + String(error instanceof Error ? error.message : error))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const runTest = async (): Promise<void> => {
-    setBusy(true)
-    setMessage('测试中…')
-    try {
-      const result = await api.test()
-      setMessage(result.ok ? result.message : '测试失败: ' + result.message)
     } catch (error) {
       setMessage('测试失败: ' + String(error instanceof Error ? error.message : error))
     } finally {
@@ -377,22 +429,18 @@ export function WereadSettingsPanel(): JSX.Element {
       setMessage('请先同步以加载书籍列表。')
       return
     }
-    const dest = destNow || view?.exportDest || 'flomo'
-    if (dest === 'local' && localDirNow.trim() === '') {
-      setMessage('本地导出需要填写导出路径（每次必填）。')
+    const dest = destNow || 'flomo'
+    if (dest === 'local' && (view?.localExportDir ?? '') === '') {
+      setMessage('本地导出需要先在「④ 本地导出」配置导出目录。')
       return
+    }
+    if (dest === 'all' && (view?.localExportDir ?? '') === '') {
+      setMessage('全选导出包含本地目标，但「④ 本地导出」未配置目录；本地部分将跳过（其余目标照常导出）。')
     }
     setBusy(true)
     setMessage('导出中…')
     try {
       const body: Record<string, unknown> = { bookId, dest }
-      if (dest === 'local') body.localDir = localDirNow.trim()
-      if (dest === 'flomo' && flomoTagNow.trim() !== '') body.tag = flomoTagNow.trim()
-      if (dest === 'all') {
-        // Use per-run values when provided; otherwise fall back to config.
-        if (localDirNow.trim() !== '') body.localDir = localDirNow.trim()
-        if (flomoTagNow.trim() !== '') body.tag = flomoTagNow.trim()
-      }
       if (usePromptNow !== null) body.usePrompt = usePromptNow
       const result: WereadFlomoResult = await api.exportData(body)
       setMessage(result.ok ? result.message : '导出失败: ' + result.message)
@@ -409,23 +457,16 @@ export function WereadSettingsPanel(): JSX.Element {
       <div style={view?.configured === false ? s.statusWarn : s.status}>{statusText(view)}</div>
 
       <div style={s.group}>
-        <div style={s.groupTitle}>① 连接与导出偏好</div>
+        <div style={s.groupTitle}>① 连接</div>
         <div style={s.row}>
           <input
             style={s.input}
-            placeholder="Skills API Key（wrk- 开头）"
+            placeholder="微信读书 Skills API Key（wrk- 开头）"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
           />
         </div>
         <div style={s.row}>
-          <span style={s.label}>默认导出标签</span>
-          <input
-            style={{ ...s.input, width: '130px' }}
-            placeholder="如 读书笔记"
-            value={defaultFlomoTag}
-            onChange={(e) => setDefaultFlomoTag(e.target.value)}
-          />
           <span style={s.label}>导出条数</span>
           <select style={{ ...s.select, flex: 0, minWidth: '104px' }} value={limitChoice} onChange={(e) => setLimitChoice(e.target.value)}>
             <option value="0">全部导出</option>
@@ -437,71 +478,10 @@ export function WereadSettingsPanel(): JSX.Element {
           {limitChoice === 'custom' && (
             <input style={{ ...s.input, width: '64px' }} placeholder="条数" value={customLimit} onChange={(e) => setCustomLimit(e.target.value)} />
           )}
-        </div>
-        <div style={s.row}>
-          <span style={s.label}>默认目标</span>
-          <select style={{ ...s.select, flex: 0, minWidth: '130px' }} value={exportDest} onChange={(e) => setExportDest(e.target.value)}>
-            <option value="flomo">flomo</option>
-            <option value="local">本地文件</option>
-            <option value="notion">Notion</option>
-            <option value="all">全选（flomo+本地+Notion）</option>
-          </select>
-          {(exportDest === 'local' || exportDest === 'all') && (
-            <>
-              <input style={s.input} placeholder="本地导出目录（绝对路径，可留空导出时填）" value={localExportDir} onChange={(e) => setLocalExportDir(e.target.value)} />
-              <button style={s.button} onClick={() => void pickFolder((p) => setLocalExportDir(p))} disabled={busy}>选择文件夹…</button>
-            </>
-          )}
-        </div>
-
-        <div style={s.subTitle}>快捷导出</div>
-        <div style={s.row}>
-          <span style={s.label}>选择书籍</span>
-          <select style={s.select} value={bookId} onChange={(e) => setBookId(e.target.value)} disabled={books.length === 0}>
-            {books.length === 0 ? <option value="">（缓存无书籍，先同步）</option> : books.map((b) => (
-              <option key={b.bookId} value={b.bookId}>《{b.title}》{b.author !== '' ? ' · ' + b.author : ''}</option>
-            ))}
-          </select>
-          <button style={s.button} onClick={() => void runSync()} disabled={busy || !view?.configured}>同步书架/笔记</button>
-        </div>
-        <div style={s.row}>
-          <span style={s.label}>本次目标</span>
-          <select style={{ ...s.select, flex: 0, minWidth: '130px' }} value={destNow} onChange={(e) => setDestNow(e.target.value)}>
-            <option value="flomo">flomo</option>
-            <option value="local">本地文件</option>
-            <option value="notion">Notion</option>
-            <option value="all">全选（flomo+本地+Notion）</option>
-          </select>
-          {(destNow === 'local' || destNow === 'all') && (
-            <>
-              <input style={s.input} placeholder={destNow === 'local' ? '导出路径（必填）' : '本地路径（留空用默认）'} value={localDirNow} onChange={(e) => setLocalDirNow(e.target.value)} />
-              <button style={s.button} onClick={() => void pickFolder((p) => setLocalDirNow(p))} disabled={busy}>选择文件夹…</button>
-            </>
-          )}
-          {(destNow === 'flomo' || destNow === 'all') && (
-            <input style={{ ...s.input, width: '150px' }} placeholder={destNow === 'all' ? 'flomo 标签（留空用默认）' : '本次标签（#）'} value={flomoTagNow} onChange={(e) => setFlomoTagNow(e.target.value)} />
-          )}
-        </div>
-        <div style={s.row}>
-          <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={usePromptNow === null ? (view?.usePrompt ?? false) : usePromptNow}
-              onChange={(e) => setUsePromptNow(e.target.checked)}
-            />
-            本次用 prompt 处理（默认跟随配置）
-          </label>
           <div style={s.flex} />
-          <button style={s.button} onClick={() => void runExportNow()} disabled={busy || !view?.configured}>
-            导出到 {destNow === 'all' ? '全部' : (destNow === 'local' ? '本地' : (destNow === 'notion' ? 'Notion' : 'flomo'))}
-          </button>
-        </div>
-
-        <div style={s.row}>
-          <div style={s.flex} />
-          <button style={s.button} onClick={() => void saveConfig()} disabled={busy}>保存配置</button>
+          <button style={s.button} onClick={() => void saveMainConfig()} disabled={busy}>保存</button>
           <button style={s.button} onClick={() => void runTest()} disabled={busy || !view?.configured}>测试连接</button>
-          <button style={s.button} onClick={() => void clearConfig()} disabled={busy}>清除</button>
+          <button style={s.button} onClick={() => void clearConfig()} disabled={busy}>清除全部</button>
         </div>
       </div>
 
@@ -511,15 +491,19 @@ export function WereadSettingsPanel(): JSX.Element {
           {view === null
             ? '加载中…'
             : (view.flomoConfigured
-              ? '已配置：' + view.flomoSource + ' ' + view.flomoMasked + '（与「Flomo」面板共享，文件 ' + view.flomoConfigPath + '）'
-              : '未配置 — 在 flomo 设置页（flomoapp.com/mine?source=incoming_webhook）获取 API URL，粘贴到下方。')}
+              ? '已配置：' + view.flomoSource + ' ' + view.flomoMasked + '（与「Flomo」面板共享凭据）'
+              : '未配置 — 在 flomo 设置页（flomoapp.com/mine?source=incoming_webhook）获取 API URL。')}
+        </div>
+        <div style={s.row}>
+          <span style={s.label}>标签</span>
+          <input style={{ ...s.input, width: '160px' }} placeholder="如 读书笔记（#）" value={defaultFlomoTag} onChange={(e) => setDefaultFlomoTag(e.target.value)} />
         </div>
         <div style={s.row}>
           <input style={s.input} type="password" placeholder="flomo API URL（https://flomoapp.com/iwh/xxxx）" value={flomoWebhookUrl} onChange={(e) => setFlomoWebhookUrl(e.target.value)} />
         </div>
         <div style={s.row}>
           <input style={s.input} type="password" placeholder="或 flomo API Key（新版，与 URL 二选一）" value={flomoApiKey} onChange={(e) => setFlomoApiKey(e.target.value)} />
-          <button style={s.button} onClick={() => void saveConfig()} disabled={busy}>保存 flomo</button>
+          <button style={s.button} onClick={() => void saveFlomoConfig()} disabled={busy}>保存 flomo</button>
           <button style={s.button} onClick={() => void testFlomoConfig()} disabled={busy || !view?.flomoConfigured}>测试 flomo</button>
           <button style={s.button} onClick={() => void clearFlomoConfig()} disabled={busy}>清除</button>
         </div>
@@ -527,17 +511,40 @@ export function WereadSettingsPanel(): JSX.Element {
 
       <div style={s.group}>
         <div style={s.groupTitle}>③ Notion 导出</div>
+        <div style={view?.notionConfigured === false ? s.statusWarn : s.status}>
+          {view === null
+            ? '加载中…'
+            : (view.notionConfigured
+              ? '已配置' + (view.notionTargetPageId !== '' ? ' · 目标页已填' : '（未填目标页）')
+              : '未配置 — 在 notion.so/my-integrations 创建 Integration 并复制 Token。')}
+        </div>
         <div style={s.row}>
-          <input style={s.input} type="password" placeholder="Notion Integration Token（notion.so/my-integrations 创建）" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} />
+          <input style={s.input} type="password" placeholder="Notion Integration Token" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} />
         </div>
         <div style={s.row}>
           <input style={s.input} placeholder="目标父页面 URL 或 32 位 ID（页面需分享给该 Integration）" value={notionTargetPageId} onChange={(e) => setNotionTargetPageId(e.target.value)} />
+        </div>
+        <div style={s.row}>
+          <div style={s.flex} />
+          <button style={s.button} onClick={() => void saveNotionConfig()} disabled={busy}>保存 Notion</button>
           <button style={s.button} onClick={() => void testNotionConfig()} disabled={busy || !view?.notionConfigured}>测试 Notion</button>
         </div>
       </div>
 
       <div style={s.group}>
-        <div style={s.groupTitle}>④ AI · prompt 处理（导出前用 LLM 按模板整理）</div>
+        <div style={s.groupTitle}>④ 本地导出</div>
+        <div style={view?.localExportDir === '' ? s.statusWarn : s.status}>
+          {view === null ? '加载中…' : (view.localExportDir !== '' ? '已配置：' + view.localExportDir : '未配置 — 选择或填写一个导出目录，导出为 Markdown 文件。')}
+        </div>
+        <div style={s.row}>
+          <input style={s.input} placeholder="导出目录（绝对路径）" value={localExportDir} onChange={(e) => setLocalExportDir(e.target.value)} />
+          <button style={s.button} onClick={() => void pickFolder((p) => setLocalExportDir(p))} disabled={busy}>选择文件夹…</button>
+          <button style={s.button} onClick={() => void saveLocalConfig()} disabled={busy}>保存本地</button>
+        </div>
+      </div>
+
+      <div style={s.group}>
+        <div style={s.groupTitle}>⑤ AI · prompt 处理（导出前用 LLM 按模板整理）</div>
         <div style={s.row}>
           <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
             <input type="checkbox" checked={usePrompt} onChange={(e) => setUsePrompt(e.target.checked)} />
@@ -555,6 +562,44 @@ export function WereadSettingsPanel(): JSX.Element {
             onChange={(e) => setExportPrompt(e.target.value)}
           />
         </div>
+        <div style={s.row}>
+          <div style={s.flex} />
+          <button style={s.button} onClick={() => void saveAIConfig()} disabled={busy}>保存 AI</button>
+        </div>
+      </div>
+
+      <div style={s.group}>
+        <div style={s.groupTitle}>⑥ 快捷导出</div>
+        <div style={s.row}>
+          <span style={s.label}>选择书籍</span>
+          <select style={s.select} value={bookId} onChange={(e) => setBookId(e.target.value)} disabled={books.length === 0}>
+            {books.length === 0 ? <option value="">（缓存无书籍，先同步）</option> : books.map((b) => (
+              <option key={b.bookId} value={b.bookId}>《{b.title}》{b.author !== '' ? ' · ' + b.author : ''}</option>
+            ))}
+          </select>
+          <button style={s.button} onClick={() => void runSync()} disabled={busy || !view?.configured}>同步书架/笔记</button>
+        </div>
+        <div style={s.row}>
+          <span style={s.label}>导出到</span>
+          <select style={{ ...s.select, flex: 0, minWidth: '130px' }} value={destNow} onChange={(e) => setDestNow(e.target.value)}>
+            <option value="flomo">flomo</option>
+            <option value="local">本地文件</option>
+            <option value="notion">Notion</option>
+            <option value="all">全选（flomo+本地+Notion）</option>
+          </select>
+          <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={usePromptNow === null ? (view?.usePrompt ?? false) : usePromptNow}
+              onChange={(e) => setUsePromptNow(e.target.checked)}
+            />
+            本次用 prompt
+          </label>
+          <div style={s.flex} />
+          <button style={s.button} onClick={() => void runExportNow()} disabled={busy || !view?.configured}>
+            导出到 {destNow === 'all' ? '全部' : (destNow === 'local' ? '本地' : (destNow === 'notion' ? 'Notion' : 'flomo'))}
+          </button>
+        </div>
       </div>
 
       {message !== '' && <div style={s.msg}>{message}</div>}
@@ -562,10 +607,10 @@ export function WereadSettingsPanel(): JSX.Element {
         【API Key】打开 https://weread.qq.com/r/weread-skills → 微信读书账号登录 → 「创建 Key」→ 复制（wrk- 开头）。Key 绑定你的账号身份，请勿泄露。存于 ~/.dsh/weread-export.json（权限 0600）。
       </div>
       <div style={s.hint}>
-        【导出目标】flomo = 发到浮墨（复用「Flomo」面板凭据，超长自动拆多条 MEMO）；本地 = 导出 Markdown 文件到指定目录（每次导出需填路径）；Notion = 用本插件自己的 Integration Token 在目标父页面下创建子页面写入（目标页需分享给该 Integration）。
+        【各目标独立配置】②flomo：标签 + API URL/Key（与「Flomo」面板共享凭据）；③Notion：Integration Token + 目标页（页面需分享给该 Integration）；④本地：导出目录（导出为 Markdown 文件）。每个卡片「保存/测试」独立操作。
       </div>
       <div style={s.hint}>
-        【AI prompt】启用后导出前会调用 LLM（OpenAI 兼容，默认 DeepSeek）按模板整理划线内容再导出。模板支持 {'{title}'} {'{author}'} {'{highlights}'} {'{thoughts}'} 占位符，可随意编辑；本次导出也可临时开关。
+        【导出】「⑥ 快捷导出」只选目标：flomo / 本地 / Notion / 全选（一次导出到所有已配置目标，未配置的跳过并说明）；prompt 处理可选，导出前按 ⑤ 模板整理一次再分发。
       </div>
       <div style={s.hint}>
         【导出条数】「全部导出」= 全部划线都导出（flomo 超长自动拆多条）；「20/50/100/自定义」= 最多导出的条数。
