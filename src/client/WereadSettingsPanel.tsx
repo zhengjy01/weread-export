@@ -28,10 +28,29 @@ const s = {
     color: 'inherit',
   } as const,
   title: { fontWeight: 600, fontSize: '13px', margin: 0 } as const,
-  section: { fontWeight: 600, fontSize: '12px', margin: '6px 0 0', opacity: 0.9 } as const,
+  /** One visually separated group card. */
+  group: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginTop: '6px',
+    padding: '12px 14px',
+    borderRadius: '10px',
+    border: '1px solid rgba(128,128,128,0.22)',
+    background: 'rgba(128,128,128,0.05)',
+    minWidth: 0,
+  } as const,
+  groupTitle: {
+    fontWeight: 600,
+    fontSize: '12px',
+    opacity: 0.95,
+    margin: 0,
+    paddingBottom: '6px',
+    borderBottom: '1px solid rgba(128,128,128,0.18)',
+  } as const,
   status: { fontSize: '12px', opacity: 0.85, whiteSpace: 'pre-wrap' } as const,
   statusWarn: { fontSize: '12px', opacity: 0.9, color: '#c9763a' } as const,
-  row: { display: 'flex', gap: '6px', alignItems: 'center', minWidth: 0 } as const,
+  row: { display: 'flex', gap: '6px', alignItems: 'center', minWidth: 0, flexWrap: 'wrap' } as const,
   col: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 } as const,
   label: { fontSize: '12px', opacity: 0.8, whiteSpace: 'nowrap' } as const,
   input: {
@@ -289,118 +308,125 @@ export function WereadSettingsPanel(): JSX.Element {
       <h3 style={s.title}>微信读书</h3>
       <div style={view?.configured === false ? s.statusWarn : s.status}>{statusText(view)}</div>
 
-      <div style={s.section}>连接与导出偏好</div>
-      <div style={s.row}>
-        <input
-          style={s.input}
-          placeholder="Skills API Key（wrk- 开头）"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-        />
-      </div>
-      <div style={s.row}>
-        <span style={s.label}>默认导出标签</span>
-        <input
-          style={{ ...s.input, width: '130px' }}
-          placeholder="如 读书笔记"
-          value={defaultFlomoTag}
-          onChange={(e) => setDefaultFlomoTag(e.target.value)}
-        />
-        <span style={s.label}>导出条数</span>
-        <select style={{ ...s.select, flex: 0, minWidth: '104px' }} value={limitChoice} onChange={(e) => setLimitChoice(e.target.value)}>
-          <option value="0">全部导出</option>
-          <option value="20">20 条（默认）</option>
-          <option value="50">50 条</option>
-          <option value="100">100 条</option>
-          <option value="custom">自定义…</option>
-        </select>
-        {limitChoice === 'custom' && (
-          <input style={{ ...s.input, width: '64px' }} placeholder="条数" value={customLimit} onChange={(e) => setCustomLimit(e.target.value)} />
-        )}
-        <div style={s.flex} />
-        <button style={s.button} onClick={() => void saveConfig()} disabled={busy}>保存配置</button>
-        <button style={s.button} onClick={() => void runTest()} disabled={busy || !view?.configured}>测试连接</button>
-        <button style={s.button} onClick={() => void clearConfig()} disabled={busy}>清除</button>
-      </div>
-      <div style={s.row}>
-        <span style={s.label}>默认目标</span>
-        <select style={{ ...s.select, flex: 0, minWidth: '110px' }} value={exportDest} onChange={(e) => setExportDest(e.target.value)}>
-          <option value="flomo">flomo</option>
-          <option value="local">本地文件</option>
-          <option value="notion">Notion</option>
-        </select>
-        {exportDest === 'local' && (
-          <input style={s.input} placeholder="本地导出目录（绝对路径，可留空导出时填）" value={localExportDir} onChange={(e) => setLocalExportDir(e.target.value)} />
-        )}
-      </div>
-
-      <div style={s.section}>Notion（本插件独立配置）</div>
-      <div style={s.row}>
-        <input style={s.input} type="password" placeholder="Notion Integration Token（notion.so/my-integrations 创建）" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} />
-      </div>
-      <div style={s.row}>
-        <input style={s.input} placeholder="目标父页面 URL 或 32 位 ID（页面需分享给该 Integration）" value={notionTargetPageId} onChange={(e) => setNotionTargetPageId(e.target.value)} />
-      </div>
-
-      <div style={s.section}>AI · prompt 处理（导出前用 LLM 按模板整理）</div>
-      <div style={s.row}>
-        <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-          <input type="checkbox" checked={usePrompt} onChange={(e) => setUsePrompt(e.target.checked)} />
-          启用
-        </label>
-        <input style={s.input} placeholder="Base URL（默认 https://api.deepseek.com/v1）" value={llmBaseUrl} onChange={(e) => setLlmBaseUrl(e.target.value)} />
-        <input style={{ ...s.input, width: '130px' }} placeholder="模型" value={llmModel} onChange={(e) => setLlmModel(e.target.value)} />
-        <input style={s.input} type="password" placeholder="LLM API Key（自定义）" value={llmApiKey} onChange={(e) => setLlmApiKey(e.target.value)} />
-      </div>
-      <div style={s.col}>
-        <textarea
-          style={s.textarea}
-          placeholder="导出 prompt 模板，可用 {title} {author} {highlights} {thoughts} 占位符"
-          value={exportPrompt}
-          onChange={(e) => setExportPrompt(e.target.value)}
-        />
-      </div>
-
-      <div style={s.row}>
-        <button style={s.button} onClick={() => void runSync()} disabled={busy || !view?.configured}>同步书架/笔记</button>
-      </div>
-
-      <div style={s.section}>快捷导出</div>
-      <div style={s.row}>
-        <span style={s.label}>选择书籍</span>
-        <select style={s.select} value={bookId} onChange={(e) => setBookId(e.target.value)} disabled={books.length === 0}>
-          {books.length === 0 ? <option value="">（缓存无书籍，先同步）</option> : books.map((b) => (
-            <option key={b.bookId} value={b.bookId}>《{b.title}》{b.author !== '' ? ' · ' + b.author : ''}</option>
-          ))}
-        </select>
-      </div>
-      <div style={s.row}>
-        <span style={s.label}>本次目标</span>
-        <select style={{ ...s.select, flex: 0, minWidth: '110px' }} value={destNow} onChange={(e) => setDestNow(e.target.value)}>
-          <option value="flomo">flomo</option>
-          <option value="local">本地文件</option>
-          <option value="notion">Notion</option>
-        </select>
-        {destNow === 'local' && (
-          <input style={s.input} placeholder="导出路径（必填）" value={localDirNow} onChange={(e) => setLocalDirNow(e.target.value)} />
-        )}
-        {destNow === 'flomo' && (
-          <input style={{ ...s.input, width: '150px' }} placeholder="本次标签（#）" value={flomoTagNow} onChange={(e) => setFlomoTagNow(e.target.value)} />
-        )}
-      </div>
-      <div style={s.row}>
-        <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+      <div style={s.group}>
+        <div style={s.groupTitle}>① 连接与导出偏好</div>
+        <div style={s.row}>
           <input
-            type="checkbox"
-            checked={usePromptNow === null ? (view?.usePrompt ?? false) : usePromptNow}
-            onChange={(e) => setUsePromptNow(e.target.checked)}
+            style={s.input}
+            placeholder="Skills API Key（wrk- 开头）"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
           />
-          本次用 prompt 处理（默认跟随配置）
-        </label>
-        <div style={s.flex} />
-        <button style={s.button} onClick={() => void runExportNow()} disabled={busy || !view?.configured}>
-          导出到 {destNow === 'local' ? '本地' : (destNow === 'notion' ? 'Notion' : 'flomo')}
-        </button>
+        </div>
+        <div style={s.row}>
+          <span style={s.label}>默认导出标签</span>
+          <input
+            style={{ ...s.input, width: '130px' }}
+            placeholder="如 读书笔记"
+            value={defaultFlomoTag}
+            onChange={(e) => setDefaultFlomoTag(e.target.value)}
+          />
+          <span style={s.label}>导出条数</span>
+          <select style={{ ...s.select, flex: 0, minWidth: '104px' }} value={limitChoice} onChange={(e) => setLimitChoice(e.target.value)}>
+            <option value="0">全部导出</option>
+            <option value="20">20 条（默认）</option>
+            <option value="50">50 条</option>
+            <option value="100">100 条</option>
+            <option value="custom">自定义…</option>
+          </select>
+          {limitChoice === 'custom' && (
+            <input style={{ ...s.input, width: '64px' }} placeholder="条数" value={customLimit} onChange={(e) => setCustomLimit(e.target.value)} />
+          )}
+        </div>
+        <div style={s.row}>
+          <span style={s.label}>默认目标</span>
+          <select style={{ ...s.select, flex: 0, minWidth: '110px' }} value={exportDest} onChange={(e) => setExportDest(e.target.value)}>
+            <option value="flomo">flomo</option>
+            <option value="local">本地文件</option>
+            <option value="notion">Notion</option>
+          </select>
+          {exportDest === 'local' && (
+            <input style={s.input} placeholder="本地导出目录（绝对路径，可留空导出时填）" value={localExportDir} onChange={(e) => setLocalExportDir(e.target.value)} />
+          )}
+        </div>
+        <div style={s.row}>
+          <div style={s.flex} />
+          <button style={s.button} onClick={() => void saveConfig()} disabled={busy}>保存配置</button>
+          <button style={s.button} onClick={() => void runTest()} disabled={busy || !view?.configured}>测试连接</button>
+          <button style={s.button} onClick={() => void clearConfig()} disabled={busy}>清除</button>
+        </div>
+      </div>
+
+      <div style={s.group}>
+        <div style={s.groupTitle}>② Notion 导出</div>
+        <div style={s.row}>
+          <input style={s.input} type="password" placeholder="Notion Integration Token（notion.so/my-integrations 创建）" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} />
+        </div>
+        <div style={s.row}>
+          <input style={s.input} placeholder="目标父页面 URL 或 32 位 ID（页面需分享给该 Integration）" value={notionTargetPageId} onChange={(e) => setNotionTargetPageId(e.target.value)} />
+        </div>
+      </div>
+
+      <div style={s.group}>
+        <div style={s.groupTitle}>③ AI · prompt 处理（导出前用 LLM 按模板整理）</div>
+        <div style={s.row}>
+          <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={usePrompt} onChange={(e) => setUsePrompt(e.target.checked)} />
+            启用
+          </label>
+          <input style={s.input} placeholder="Base URL（默认 https://api.deepseek.com/v1）" value={llmBaseUrl} onChange={(e) => setLlmBaseUrl(e.target.value)} />
+          <input style={{ ...s.input, width: '130px' }} placeholder="模型" value={llmModel} onChange={(e) => setLlmModel(e.target.value)} />
+          <input style={s.input} type="password" placeholder="LLM API Key（自定义）" value={llmApiKey} onChange={(e) => setLlmApiKey(e.target.value)} />
+        </div>
+        <div style={s.col}>
+          <textarea
+            style={s.textarea}
+            placeholder="导出 prompt 模板，可用 {title} {author} {highlights} {thoughts} 占位符"
+            value={exportPrompt}
+            onChange={(e) => setExportPrompt(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div style={s.group}>
+        <div style={s.groupTitle}>④ 快捷导出</div>
+        <div style={s.row}>
+          <span style={s.label}>选择书籍</span>
+          <select style={s.select} value={bookId} onChange={(e) => setBookId(e.target.value)} disabled={books.length === 0}>
+            {books.length === 0 ? <option value="">（缓存无书籍，先同步）</option> : books.map((b) => (
+              <option key={b.bookId} value={b.bookId}>《{b.title}》{b.author !== '' ? ' · ' + b.author : ''}</option>
+            ))}
+          </select>
+          <button style={s.button} onClick={() => void runSync()} disabled={busy || !view?.configured}>同步书架/笔记</button>
+        </div>
+        <div style={s.row}>
+          <span style={s.label}>本次目标</span>
+          <select style={{ ...s.select, flex: 0, minWidth: '110px' }} value={destNow} onChange={(e) => setDestNow(e.target.value)}>
+            <option value="flomo">flomo</option>
+            <option value="local">本地文件</option>
+            <option value="notion">Notion</option>
+          </select>
+          {destNow === 'local' && (
+            <input style={s.input} placeholder="导出路径（必填）" value={localDirNow} onChange={(e) => setLocalDirNow(e.target.value)} />
+          )}
+          {destNow === 'flomo' && (
+            <input style={{ ...s.input, width: '150px' }} placeholder="本次标签（#）" value={flomoTagNow} onChange={(e) => setFlomoTagNow(e.target.value)} />
+          )}
+        </div>
+        <div style={s.row}>
+          <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={usePromptNow === null ? (view?.usePrompt ?? false) : usePromptNow}
+              onChange={(e) => setUsePromptNow(e.target.checked)}
+            />
+            本次用 prompt 处理（默认跟随配置）
+          </label>
+          <div style={s.flex} />
+          <button style={s.button} onClick={() => void runExportNow()} disabled={busy || !view?.configured}>
+            导出到 {destNow === 'local' ? '本地' : (destNow === 'notion' ? 'Notion' : 'flomo')}
+          </button>
+        </div>
       </div>
 
       {message !== '' && <div style={s.msg}>{message}</div>}
