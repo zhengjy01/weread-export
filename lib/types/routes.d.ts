@@ -26,6 +26,8 @@ export declare const WEREAD_API: {
     readonly flomo: "/api/weread-export/flomo";
     readonly books: "/api/weread-export/books";
     readonly pickDir: "/api/weread-export/pick-dir";
+    readonly testFlomo: "/api/weread-export/test-flomo";
+    readonly testNotion: "/api/weread-export/test-notion";
 };
 /** Route handler context. */
 export interface RouteContext {
@@ -57,6 +59,14 @@ export declare function makeRoutes(deps: RouteContext): ({
 } | {
     kind: "exact";
     path: "/api/weread-export/pick-dir";
+    handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+} | {
+    kind: "exact";
+    path: "/api/weread-export/test-flomo";
+    handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+} | {
+    kind: "exact";
+    path: "/api/weread-export/test-notion";
     handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 } | {
     kind: "exact";

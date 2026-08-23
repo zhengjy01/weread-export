@@ -74,6 +74,16 @@ export declare class WereadApi {
         unsupported?: boolean;
         message?: string;
     }>;
+    /** Send a test memo to flomo to verify the shared credential. */
+    testFlomo(): Promise<{
+        ok: boolean;
+        message: string;
+    }>;
+    /** Verify the Notion token and target page accessibility. */
+    testNotion(): Promise<{
+        ok: boolean;
+        message: string;
+    }>;
     exportFlomo(bookId: string, tag: string, limit?: number): Promise<WereadFlomoResult>;
     /** Multi-target export: flomo / local / notion with optional prompt. */
     exportData(body: Record<string, unknown>): Promise<WereadFlomoResult>;

@@ -10,8 +10,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WereadStore } from './store.ts'
 import { WereadApi } from './api.ts'
 import { readCache, doSync } from './cache.ts'
-import { readFlomoCredentials, writeFlomoCredentials, flomoStatus } from './flomo.ts'
+import { readFlomoCredentials, writeFlomoCredentials, flomoStatus, resolveFlomoUrl, postMemo } from './flomo.ts'
 import { runExport, type ExportRequest, type ToolContext } from './tools.ts'
+import { normalizeNotionPageId, NOTION_API, NOTION_VERSION } from './export.ts'
 
 /** Minimal host directory-picker seam (duck-typed; native = OS folder chooser). */
 export interface NativeDirectoryPicker {
@@ -28,6 +29,8 @@ export const WEREAD_API = {
   flomo: '/api/weread-export/flomo',
   books: '/api/weread-export/books',
   pickDir: '/api/weread-export/pick-dir',
+  testFlomo: '/api/weread-export/test-flomo',
+  testNotion: '/api/weread-export/test-notion',
 } as const
 
 /** Cap on JSON request bodies. */
@@ -244,6 +247,86 @@ export function makeRoutes(deps: RouteContext) {
           writeJson(res, 200, { ok: false, unsupported: true, message: '当前为远程浏览模式，不支持系统文件夹对话框，请手动输入路径。' })
         } catch (error) {
           writeJson(res, 200, { ok: false, message: '选择文件夹失败：' + String(error instanceof Error ? error.message : error) })
+        }
+      },
+    },
+    {
+      kind: 'exact' as const,
+      path: WEREAD_API.testFlomo,
+      handler: async (req: IncomingMessage, res: ServerResponse) => {
+        if (!guard(req, res, 'POST')) return
+        const url = await resolveFlomoUrl()
+        if (url === null) {
+          writeJson(res, 200, { ok: false, message: 'flomo 未配置：请先在「② flomo 导出」填写 API URL / API Key 并保存。' })
+          return
+        }
+        try {
+          // Sends one real test memo so the credential is fully verified.
+          const result = await postMemo(url, '✅ weread-export 测试：flomo 配置有效（' + new Date().toISOString() + '）')
+          writeJson(res, 200, result)
+        } catch (error) {
+          writeJson(res, 200, { ok: false, message: '测试失败：' + String(error instanceof Error ? error.message : error) })
+        }
+      },
+    },
+    {
+      kind: 'exact' as const,
+      path: WEREAD_API.testNotion,
+      handler: async (req: IncomingMessage, res: ServerResponse) => {
+        if (!guard(req, res, 'POST')) return
+        const view = await store.view()
+        if (!view.notionConfigured) {
+          writeJson(res, 200, { ok: false, message: 'Notion 未配置：请先在「③ Notion 导出」填写 Integration Token 并保存。' })
+          return
+        }
+        const creds = await store.load()
+        try {
+          // 1) Verify the token via /users/me.
+          const meRes = await fetch(NOTION_API + '/v1/users/me', {
+            headers: {
+              'Authorization': 'Bearer ' + creds.notionToken.trim(),
+              'Notion-Version': NOTION_VERSION,
+            },
+            signal: AbortSignal.timeout(15000),
+          })
+          if (!meRes.ok) {
+            const body = await meRes.text().catch(() => '')
+            writeJson(res, 200, { ok: false, message: 'Token 无效（HTTP ' + meRes.status + '）：' + body.slice(0, 200) + '。请检查 Token 是否正确。' })
+            return
+          }
+          const me = await meRes.json().catch(() => ({}))
+          const workspace = (me as { name?: string }).name ?? '未知工作区'
+
+          // 2) Verify the target page is shareable with this integration.
+          if (creds.notionTargetPageId.trim() === '') {
+            writeJson(res, 200, { ok: true, message: 'Token 有效（工作区：' + workspace + '）。未配置目标页面，导出时还需在「③ Notion 导出」填写目标页。' })
+            return
+          }
+          let pageId: string
+          try {
+            pageId = normalizeNotionPageId(creds.notionTargetPageId)
+          } catch (error) {
+            writeJson(res, 200, { ok: false, message: 'Token 有效（工作区：' + workspace + '），但目标页面 ID 无法解析：' + String(error instanceof Error ? error.message : error) })
+            return
+          }
+          const pageRes = await fetch(NOTION_API + '/v1/pages/' + pageId, {
+            headers: {
+              'Authorization': 'Bearer ' + creds.notionToken.trim(),
+              'Notion-Version': NOTION_VERSION,
+            },
+            signal: AbortSignal.timeout(15000),
+          })
+          if (pageRes.status === 404) {
+            writeJson(res, 200, { ok: false, message: 'Token 有效（工作区：' + workspace + '），但目标页面不可访问（404）：请先在 Notion 中把该页面分享给此 Integration（页面右上角 ··· → Connections → 添加 Integration）。' })
+            return
+          }
+          if (!pageRes.ok) {
+            writeJson(res, 200, { ok: false, message: 'Token 有效（工作区：' + workspace + '），但读取目标页失败（HTTP ' + pageRes.status + '）。' })
+            return
+          }
+          writeJson(res, 200, { ok: true, message: '✅ Notion 配置有效：工作区「' + workspace + '」，目标页面可访问。' })
+        } catch (error) {
+          writeJson(res, 200, { ok: false, message: '测试失败：' + String(error instanceof Error ? error.message : error) })
         }
       },
     },

@@ -264,6 +264,51 @@ export function WereadSettingsPanel(): JSX.Element {
     }
   }
 
+  /** Test flomo: saves any unsaved fields first, then sends a test memo. */
+  const testFlomoConfig = async (): Promise<void> => {
+    setBusy(true)
+    setMessage('测试中…（会向 flomo 发送一条测试 MEMO）')
+    try {
+      if (flomoWebhookUrl.trim() !== '' || flomoApiKey.trim() !== '') {
+        await api.setConfig({
+          flomoWebhookUrl: flomoWebhookUrl.trim() !== '' ? flomoWebhookUrl.trim() : undefined,
+          flomoApiKey: flomoApiKey.trim() !== '' ? flomoApiKey.trim() : undefined,
+        })
+        setFlomoWebhookUrl('')
+        setFlomoApiKey('')
+        setView(await api.getStatus())
+      }
+      const result = await api.testFlomo()
+      setMessage(result.ok ? '✅ ' + result.message : '测试失败: ' + result.message)
+    } catch (error) {
+      setMessage('测试失败: ' + String(error instanceof Error ? error.message : error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Test Notion: saves any unsaved fields first, then verifies token + page. */
+  const testNotionConfig = async (): Promise<void> => {
+    setBusy(true)
+    setMessage('测试中…')
+    try {
+      if (notionToken.trim() !== '' || notionTargetPageId.trim() !== '') {
+        await api.setConfig({
+          notionToken: notionToken.trim() !== '' ? notionToken.trim() : undefined,
+          notionTargetPageId: notionTargetPageId.trim() !== '' ? notionTargetPageId.trim() : undefined,
+        })
+        setNotionToken('')
+        setView(await api.getStatus())
+      }
+      const result = await api.testNotion()
+      setMessage(result.ok ? '✅ ' + result.message : '测试失败: ' + result.message)
+    } catch (error) {
+      setMessage('测试失败: ' + String(error instanceof Error ? error.message : error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const clearConfig = async (): Promise<void> => {
     setBusy(true)
     setMessage('')
@@ -475,6 +520,7 @@ export function WereadSettingsPanel(): JSX.Element {
         <div style={s.row}>
           <input style={s.input} type="password" placeholder="或 flomo API Key（新版，与 URL 二选一）" value={flomoApiKey} onChange={(e) => setFlomoApiKey(e.target.value)} />
           <button style={s.button} onClick={() => void saveConfig()} disabled={busy}>保存 flomo</button>
+          <button style={s.button} onClick={() => void testFlomoConfig()} disabled={busy || !view?.flomoConfigured}>测试 flomo</button>
           <button style={s.button} onClick={() => void clearFlomoConfig()} disabled={busy}>清除</button>
         </div>
       </div>
@@ -486,6 +532,7 @@ export function WereadSettingsPanel(): JSX.Element {
         </div>
         <div style={s.row}>
           <input style={s.input} placeholder="目标父页面 URL 或 32 位 ID（页面需分享给该 Integration）" value={notionTargetPageId} onChange={(e) => setNotionTargetPageId(e.target.value)} />
+          <button style={s.button} onClick={() => void testNotionConfig()} disabled={busy || !view?.notionConfigured}>测试 Notion</button>
         </div>
       </div>
 

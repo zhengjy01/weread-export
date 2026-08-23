@@ -137,6 +137,24 @@ export class WereadApi {
     })
   }
 
+  /** Send a test memo to flomo to verify the shared credential. */
+  async testFlomo(): Promise<{ ok: boolean; message: string }> {
+    return request<{ ok: boolean; message: string }>('/api/weread-export/test-flomo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+  }
+
+  /** Verify the Notion token and target page accessibility. */
+  async testNotion(): Promise<{ ok: boolean; message: string }> {
+    return request<{ ok: boolean; message: string }>('/api/weread-export/test-notion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+  }
+
   async exportFlomo(bookId: string, tag: string, limit = 20): Promise<WereadFlomoResult> {
     return request<WereadFlomoResult>('/api/weread-export/flomo', {
       method: 'POST',
