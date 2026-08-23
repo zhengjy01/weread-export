@@ -29,14 +29,15 @@ Key 存于 `~/.dsh/weixinread-flomo.json`（权限 0600），同步快照存于 
 | 工具 | 说明 |
 | --- | --- |
 | `weread_status` | 查看配置/缓存/flomo 联动状态（不回显完整 Key） |
-| `weread_config` | 配置或清除 API Key、默认 flomo 标签、导出条数（0=全部）；`test: true` 测试连接 |
+| `weread_config` | 配置或清除 API Key、默认 flomo 标签、导出条数（0=全部）、默认导出目标、本地目录、Notion Token/目标页、LLM 与 prompt 模板；`test: true` 测试连接 |
 | `weread_search` | 书城搜索（书名/作者/评分/在读人数/bookId/链接） |
 | `weread_book` | 书籍详情 + 阅读进度 + 章节目录概览 |
 | `weread_shelf` | 书架（实时或缓存）：书名/进度/最近阅读时间/是否读完 |
 | `weread_notes` | 不给 bookId = 笔记本概览；给 bookId = 该书划线 + 想法 |
 | `weread_readdata` | 阅读统计（weekly/monthly/annually/overall） |
 | `weread_sync` | 拉取书架 + 笔记本概览到本地缓存 |
-| `weread_flomo` | 把某本书划线导出到 flomo，#标签可自定义；默认按配置导出条数（0=全部，超长自动拆多条 MEMO），`limit` 可临时覆盖 |
+| `weread_export` | 多目标导出：`dest=flomo`（默认）/`local`（本地 Markdown，`localDir` 必填）/`notion`（本插件独立 Token+目标页）；可按 `exportPrompt`/`usePrompt` 用 LLM 按 prompt 整理后导出，`limit` 控制条数 |
+| `weread_flomo` | flomo 快捷导出：#标签可自定义；默认按配置导出条数（0=全部，超长自动拆多条 MEMO），`limit` 可临时覆盖 |
 
 ## 常见问题
 

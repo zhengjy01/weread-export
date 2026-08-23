@@ -10,6 +10,7 @@ import {
   WereadStore, WereadApi, WereadApiError, mask,
   formatDate, formatDuration, formatRating, deepLink, buildNotesMarkdown, buildFlomoMemo, buildFlomoMemos,
   emptyCache, readCache, writeCache, buildTaggedContent, shelfLine, notebookLines,
+  buildExportMarkdown, chunkText, toNotionBlocks, normalizeNotionPageId, renderPrompt,
 } from '../lib/index.js'
 
 let failures = 0
@@ -89,6 +90,42 @@ check('buildFlomoMemos single memo when short', () => {
   assert.equal(memos.length, 1)
   assert.ok(memos[0].includes('共 2 条'), memos[0])
 })
+check('buildExportMarkdown', () => {
+  const md = buildExportMarkdown('三体', '刘慈欣', [
+    { markText: '给岁月以文明', chapterUid: 1, createTime: 1756800000 },
+  ], [
+    { review: { reviewId: 'r1', content: '神作', abstract: '给岁月以文明', chapterName: '第一章', createTime: 1756800000 } },
+  ], [{ chapterUid: 1, title: '第一章' }])
+  assert.ok(md.includes('# 《三体》'), md)
+  assert.ok(md.includes('## 划线 1 条'), md)
+  assert.ok(md.includes('## 想法 1 条'), md)
+  assert.ok(md.includes('原文：给岁月以文明'), md)
+})
+check('chunkText splits long text', () => {
+  const text = Array.from({ length: 80 }, (_, i) => '第 ' + (i + 1) + ' 行：' + '内容'.repeat(30)).join('\n')
+  const chunks = chunkText(text, 1800, '长书')
+  assert.ok(chunks.length > 1, 'expected multiple chunks, got ' + chunks.length)
+  assert.equal(chunks.join('\n').length >= text.length, true)
+  for (const c of chunks) assert.ok(c.length <= 1800 + 64, 'chunk too long: ' + c.length)
+})
+check('normalizeNotionPageId', () => {
+  const id = '8ab3e1c2abcd4ef8901234567890abc1'
+  assert.equal(normalizeNotionPageId(id), id)
+  assert.equal(normalizeNotionPageId('https://www.notion.so/MyPage-' + id + '?pvs=4'), id)
+  assert.equal(normalizeNotionPageId(id.toUpperCase()), id)
+  assert.throws(() => normalizeNotionPageId(''), /目标页面/)
+  assert.throws(() => normalizeNotionPageId('not-a-valid-id'), /无法识别/)
+})
+check('toNotionBlocks', () => {
+  const blocks = toNotionBlocks('# 标题\n\n- 一条\n- 二条')
+  assert.equal(blocks.length, 3)
+  assert.equal(blocks[0].type, 'paragraph')
+  assert.deepEqual(blocks[0].paragraph.rich_text[0].text, { content: '# 标题' })
+})
+check('renderPrompt', () => {
+  const out = renderPrompt('《{title}》{author}\n{highlights}\n{thoughts}', { title: 'T', author: 'A', highlights: 'H', thoughts: 'R' })
+  assert.equal(out, '《T》A\nH\nR')
+})
 check('buildTaggedContent', () => {
   assert.equal(buildTaggedContent('hello', '读书笔记 微信读书'), 'hello #读书笔记 #微信读书')
   assert.equal(buildTaggedContent('hello', '#读书笔记'), 'hello #读书笔记')
@@ -141,9 +178,19 @@ check('patch/view/mask + exportLimit', async () => {
     assert.equal(view.exportLimit, 0, 'exportLimit 0 = export all')
     view = await store.patch({ exportLimit: 150 })
     assert.equal(view.exportLimit, 150)
+    view = await store.patch({ exportDest: 'local', localExportDir: '/tmp/wr-out', notionToken: 'ntn_secret123', notionTargetPageId: 'abc', usePrompt: true, llmApiKey: 'sk-x', llmModel: 'deepseek-chat', llmBaseUrl: 'https://x/v1' })
+    assert.equal(view.exportDest, 'local')
+    assert.equal(view.localExportDir, '/tmp/wr-out')
+    assert.equal(view.notionConfigured, true)
+    assert.equal(view.notionTargetPageId, 'abc')
+    assert.equal(view.usePrompt, true)
+    assert.equal(view.llmConfigured, true)
+    assert.equal(view.llmModel, 'deepseek-chat')
+    assert.equal(view.llmBaseUrl, 'https://x/v1')
     view = await store.patch({ reset: true })
     assert.equal(view.configured, false)
     assert.equal(view.exportLimit, 20, 'reset restores default limit')
+    assert.equal(view.exportDest, 'flomo', 'reset restores default dest')
   } finally {
     delete process.env.DSH_WEREAD_CONFIG
     await rm(dir, { recursive: true, force: true })

@@ -10,6 +10,14 @@ export interface WereadConfigView {
   defaultFlomoTag: string
   /** 0 = export ALL highlights; N > 0 = cap at N. */
   exportLimit: number
+  exportDest: string
+  localExportDir: string
+  notionConfigured: boolean
+  notionTargetPageId: string
+  usePrompt: boolean
+  llmConfigured: boolean
+  llmBaseUrl: string
+  llmModel: string
   lastSyncAt: string
   configPath: string
 }
@@ -122,6 +130,15 @@ export class WereadApi {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookId, tag, limit }),
+    })
+  }
+
+  /** Multi-target export: flomo / local / notion with optional prompt. */
+  async exportData(body: Record<string, unknown>): Promise<WereadFlomoResult> {
+    return request<WereadFlomoResult>('/api/weixinread-flomo/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     })
   }
 }

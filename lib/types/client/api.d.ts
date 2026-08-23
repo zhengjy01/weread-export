@@ -9,6 +9,14 @@ export interface WereadConfigView {
     defaultFlomoTag: string;
     /** 0 = export ALL highlights; N > 0 = cap at N. */
     exportLimit: number;
+    exportDest: string;
+    localExportDir: string;
+    notionConfigured: boolean;
+    notionTargetPageId: string;
+    usePrompt: boolean;
+    llmConfigured: boolean;
+    llmBaseUrl: string;
+    llmModel: string;
     lastSyncAt: string;
     configPath: string;
 }
@@ -56,4 +64,6 @@ export declare class WereadApi {
     sync(): Promise<WereadSyncResult>;
     books(): Promise<WereadBook[]>;
     exportFlomo(bookId: string, tag: string, limit?: number): Promise<WereadFlomoResult>;
+    /** Multi-target export: flomo / local / notion with optional prompt. */
+    exportData(body: Record<string, unknown>): Promise<WereadFlomoResult>;
 }

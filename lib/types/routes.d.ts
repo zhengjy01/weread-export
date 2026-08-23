@@ -13,6 +13,7 @@ export declare const WEREAD_API: {
     readonly status: "/api/weixinread-flomo/status";
     readonly test: "/api/weixinread-flomo/test";
     readonly sync: "/api/weixinread-flomo/sync";
+    readonly export: "/api/weixinread-flomo/export";
     readonly flomo: "/api/weixinread-flomo/flomo";
     readonly books: "/api/weixinread-flomo/books";
 };
@@ -44,6 +45,10 @@ export declare function makeRoutes(deps: RouteContext): ({
 } | {
     kind: "exact";
     path: "/api/weixinread-flomo/books";
+    handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+} | {
+    kind: "exact";
+    path: "/api/weixinread-flomo/export";
     handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 } | {
     kind: "exact";

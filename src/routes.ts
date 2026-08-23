@@ -9,8 +9,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WereadStore } from './store.ts'
 import { WereadApi } from './api.ts'
-import { readCache, doSync, buildFlomoMemo, buildFlomoMemos } from './cache.ts'
-import { resolveFlomoUrl, postMemo, buildTaggedContent } from './flomo.ts'
+import { readCache, doSync } from './cache.ts'
+import { resolveFlomoUrl } from './flomo.ts'
+import { runExport, type ExportRequest, type ToolContext } from './tools.ts'
 
 /** Route paths. */
 export const WEREAD_API = {
@@ -18,6 +19,7 @@ export const WEREAD_API = {
   status: '/api/weixinread-flomo/status',
   test: '/api/weixinread-flomo/test',
   sync: '/api/weixinread-flomo/sync',
+  export: '/api/weixinread-flomo/export',
   flomo: '/api/weixinread-flomo/flomo',
   books: '/api/weixinread-flomo/books',
 } as const
@@ -206,6 +208,35 @@ export function makeRoutes(deps: RouteContext) {
     },
     {
       kind: 'exact' as const,
+      path: WEREAD_API.export,
+      handler: async (req: IncomingMessage, res: ServerResponse) => {
+        if (!guard(req, res, 'POST')) return
+        const view = await store.view()
+        if (!view.configured) {
+          writeJson(res, 400, { error: '未配置微信读书 API Key。' })
+          return
+        }
+        const body = (await readJsonBody(req)) ?? {}
+        const req2: ExportRequest = {
+          bookId: typeof body.bookId === 'string' ? body.bookId : undefined,
+          dest: body.dest === 'local' || body.dest === 'notion' ? body.dest : undefined,
+          localDir: typeof body.localDir === 'string' ? body.localDir : undefined,
+          tag: typeof body.tag === 'string' ? body.tag : undefined,
+          prompt: typeof body.prompt === 'string' ? body.prompt : undefined,
+          usePrompt: typeof body.usePrompt === 'boolean' ? body.usePrompt : undefined,
+          limit: typeof body.limit === 'number' && Number.isFinite(body.limit) ? body.limit : undefined,
+        }
+        if ((req2.bookId ?? '').trim() === '') {
+          writeJson(res, 400, { error: '缺少 bookId。' })
+          return
+        }
+        const ctx: ToolContext = { store }
+        const result = await runExport(ctx, req2)
+        writeJson(res, 200, result)
+      },
+    },
+    {
+      kind: 'exact' as const,
       path: WEREAD_API.flomo,
       handler: async (req: IncomingMessage, res: ServerResponse) => {
         if (!guard(req, res, 'POST')) return
@@ -215,64 +246,19 @@ export function makeRoutes(deps: RouteContext) {
           return
         }
         const body = (await readJsonBody(req)) ?? {}
-        const bookId = typeof body.bookId === 'string' ? body.bookId.trim() : ''
-        if (bookId === '') {
+        const req2: ExportRequest = {
+          bookId: typeof body.bookId === 'string' ? body.bookId : undefined,
+          dest: 'flomo',
+          tag: typeof body.tag === 'string' ? body.tag : undefined,
+          limit: typeof body.limit === 'number' && Number.isFinite(body.limit) ? body.limit : undefined,
+        }
+        if ((req2.bookId ?? '').trim() === '') {
           writeJson(res, 400, { error: '缺少 bookId。' })
           return
         }
-        const flomoUrl = await resolveFlomoUrl()
-        if (flomoUrl === null) {
-          writeJson(res, 400, { error: 'flomo 未配置：请先在 Web 设置页「Flomo」面板配置 API URL / API Key。' })
-          return
-        }
-        // limit resolution: explicit body arg wins, else the config exportLimit (0 = export all).
-        const limit = typeof body.limit === 'number' && Number.isFinite(body.limit)
-          ? Math.max(0, Math.floor(body.limit))
-          : view.exportLimit
-        try {
-          const api = await apiFor(store)
-          const [bookmarks, info] = await Promise.all([
-            api.bookmarklist(bookId),
-            api.bookInfo(bookId).catch(() => undefined),
-          ])
-          const highlights = Array.isArray(bookmarks.updated) ? bookmarks.updated : []
-          if (highlights.length === 0) {
-            writeJson(res, 200, { ok: false, message: '《' + (info?.title ?? bookId) + '》暂无划线，未发送。', sent: 0 })
-            return
-          }
-          const tag = (typeof body.tag === 'string' && body.tag.trim() !== '' ? body.tag.trim() : view.defaultFlomoTag)
-          const title = info?.title ?? '未知书名'
-
-          let memos: string[]
-          let exported: number
-          if (limit === 0 || limit >= highlights.length) {
-            memos = buildFlomoMemos(title, highlights, bookmarks.chapters)
-            exported = highlights.length
-          } else {
-            memos = [buildFlomoMemo(title, highlights, bookmarks.chapters, highlights.length, limit)]
-            exported = Math.min(highlights.length, limit)
-          }
-
-          let sent = 0
-          let failed = 0
-          for (const memo of memos) {
-            const result = await postMemo(flomoUrl, buildTaggedContent(memo, tag))
-            if (result.ok) sent += 1
-            else failed += 1
-          }
-          const scope = limit === 0 || limit >= highlights.length ? '全部 ' + highlights.length + ' 条' : exported + ' 条（共 ' + highlights.length + ' 条）'
-          writeJson(res, 200, {
-            ok: failed === 0,
-            message: sent > 0
-              ? '已导出 ' + scope + ' 划线到 flomo（#' + tag + '）：' + sent + ' 条 MEMO 发送成功' + (failed > 0 ? '，' + failed + ' 条失败' : '') + '。'
-              : '发送失败：全部 ' + memos.length + ' 条 MEMO 发送失败',
-            sent: exported,
-            memoCount: memos.length,
-            bookId,
-          })
-        } catch (error) {
-          writeJson(res, 200, { ok: false, message: '导出失败：' + String(error instanceof Error ? error.message : error), sent: 0, bookId })
-        }
+        const ctx: ToolContext = { store }
+        const result = await runExport(ctx, req2)
+        writeJson(res, 200, result)
       },
     },
   ]

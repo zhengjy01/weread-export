@@ -24,20 +24,50 @@ export interface WereadCredentials {
     defaultFlomoTag: string;
     /** Highlights per export: 0 = export ALL, N > 0 = cap at N. */
     exportLimit: number;
+    /** Default export destination: flomo | local | notion. */
+    exportDest: ExportDest;
+    /** Local export directory (required when dest=local; no default). */
+    localExportDir: string;
+    /** Notion integration token (plugin-owned, independent of dsh-notion). */
+    notionToken: string;
+    /** Notion target parent page: id or URL (page must share with the token). */
+    notionTargetPageId: string;
+    /** Whether to run highlights through the LLM prompt before export. */
+    usePrompt: boolean;
+    /** LLM prompt template ({title}/{author}/{highlights}/{thoughts} placeholders). */
+    exportPrompt: string;
+    /** OpenAI-compatible chat completions base URL. */
+    llmBaseUrl: string;
+    /** LLM API key (custom, panel-configured). */
+    llmApiKey: string;
+    /** LLM model name. */
+    llmModel: string;
     /** ISO timestamp of the last successful sync. */
     lastSyncAt: string;
 }
+/** Export destination. */
+export type ExportDest = 'flomo' | 'local' | 'notion';
 /** Public, secret-free status view. */
 export interface WereadConfigView {
     configured: boolean;
     apiKeyMasked: string;
     defaultFlomoTag: string;
     exportLimit: number;
+    exportDest: ExportDest;
+    localExportDir: string;
+    notionConfigured: boolean;
+    notionTargetPageId: string;
+    usePrompt: boolean;
+    llmConfigured: boolean;
+    llmBaseUrl: string;
+    llmModel: string;
     lastSyncAt: string;
     configPath: string;
 }
 /** Mask a credential for display, keeping only the head and tail. */
 export declare function mask(value: string): string;
+/** Default export prompt template. */
+export declare const DEFAULT_EXPORT_PROMPT: string;
 /**
  * Small credential store backed by ~/.dsh/weixinread-flomo.json.
  * Reads are lazy and cached; writes use mode 0600 so the API key never
@@ -50,8 +80,8 @@ export declare class WereadStore {
     /** Public, secret-free view. */
     view(): Promise<WereadConfigView>;
     /**
-     * Apply a config patch: apiKey / defaultFlomoTag / exportLimit replace,
-     * reset clears. Returns the public view.
+     * Apply a config patch: any supported field replaces, reset clears.
+     * Returns the public view.
      */
     patch(args: Record<string, unknown> | undefined): Promise<WereadConfigView>;
 }

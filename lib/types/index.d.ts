@@ -33,10 +33,12 @@ export interface Config {
  */
 export declare function apply(ctx: Context, config?: Config): void;
 /** Re-exports for host consumers and smoke tests. */
-export { WereadStore, mask, configPath, cachePath, type WereadConfigView, type WereadCredentials } from './store.ts';
+export { WereadStore, mask, configPath, cachePath, DEFAULT_EXPORT_PROMPT, type WereadConfigView, type WereadCredentials, type ExportDest } from './store.ts';
 export { WereadApi, WereadApiError, WEREAD_GATEWAY, SKILL_VERSION, type BookInfo, type ShelfBook, type NotebookEntry, type Highlight, type MineReviewEntry } from './api.ts';
-export { wereadStatusTool, wereadConfigTool, wereadSearchTool, wereadBookTool, wereadShelfTool, wereadNotesTool, wereadReaddataTool, wereadSyncTool, wereadFlomoTool, buildTools, type ToolContext } from './tools.ts';
+export { wereadStatusTool, wereadConfigTool, wereadSearchTool, wereadBookTool, wereadShelfTool, wereadNotesTool, wereadReaddataTool, wereadSyncTool, wereadExportTool, wereadFlomoTool, runExport, buildTools, type ToolContext, type ExportRequest, type ExportResult } from './tools.ts';
 export { doSync, readCache, writeCache, emptyCache, buildNotesMarkdown, buildFlomoMemo, buildFlomoMemos, FLOMO_MAX_CHARS, formatDate, formatDuration, formatRating, dateLabel, deepLink, shelfLine, notebookLines, type WereadCache } from './cache.ts';
 export { resolveFlomoUrl, flomoConfigured, postMemo, buildTaggedContent, FLOMO_CONFIG_FILE } from './flomo.ts';
+export { chatComplete, renderPrompt, llmConfigured, type LlmConfig } from './llm.ts';
+export { buildExportMarkdown, processWithPrompt, exportToLocal, exportToNotion, exportToFlomo, chunkText, toNotionBlocks, normalizeNotionPageId, NOTION_API, NOTION_VERSION } from './export.ts';
 export { makeRoutes, WEREAD_API } from './routes.ts';
 export { defineTool };

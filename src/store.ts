@@ -39,9 +39,30 @@ export interface WereadCredentials {
   defaultFlomoTag: string
   /** Highlights per export: 0 = export ALL, N > 0 = cap at N. */
   exportLimit: number
+  /** Default export destination: flomo | local | notion. */
+  exportDest: ExportDest
+  /** Local export directory (required when dest=local; no default). */
+  localExportDir: string
+  /** Notion integration token (plugin-owned, independent of dsh-notion). */
+  notionToken: string
+  /** Notion target parent page: id or URL (page must share with the token). */
+  notionTargetPageId: string
+  /** Whether to run highlights through the LLM prompt before export. */
+  usePrompt: boolean
+  /** LLM prompt template ({title}/{author}/{highlights}/{thoughts} placeholders). */
+  exportPrompt: string
+  /** OpenAI-compatible chat completions base URL. */
+  llmBaseUrl: string
+  /** LLM API key (custom, panel-configured). */
+  llmApiKey: string
+  /** LLM model name. */
+  llmModel: string
   /** ISO timestamp of the last successful sync. */
   lastSyncAt: string
 }
+
+/** Export destination. */
+export type ExportDest = 'flomo' | 'local' | 'notion'
 
 /** Public, secret-free status view. */
 export interface WereadConfigView {
@@ -49,6 +70,14 @@ export interface WereadConfigView {
   apiKeyMasked: string
   defaultFlomoTag: string
   exportLimit: number
+  exportDest: ExportDest
+  localExportDir: string
+  notionConfigured: boolean
+  notionTargetPageId: string
+  usePrompt: boolean
+  llmConfigured: boolean
+  llmBaseUrl: string
+  llmModel: string
   lastSyncAt: string
   configPath: string
 }
@@ -60,9 +89,30 @@ export function mask(value: string): string {
   return value.slice(0, 4) + '****' + value.slice(-4)
 }
 
+/** Default export prompt template. */
+export const DEFAULT_EXPORT_PROMPT =
+  '你是读书笔记整理助手。请根据下面提供的微信读书划线内容，输出一份结构化读书笔记：\n' +
+  '## 核心观点\n## 金句摘录\n## 我的思考\n' +
+  '要求：保留划线原文要点，语言精炼，使用 Markdown 格式。\n\n' +
+  '书籍：{title}\n作者：{author}\n划线内容：\n{highlights}'
+
 /** Empty credentials record. */
 function empty(): WereadCredentials {
-  return { apiKey: '', defaultFlomoTag: '微信读书', exportLimit: 20, lastSyncAt: '' }
+  return {
+    apiKey: '',
+    defaultFlomoTag: '微信读书',
+    exportLimit: 20,
+    exportDest: 'flomo',
+    localExportDir: '',
+    notionToken: '',
+    notionTargetPageId: '',
+    usePrompt: false,
+    exportPrompt: DEFAULT_EXPORT_PROMPT,
+    llmBaseUrl: 'https://api.deepseek.com/v1',
+    llmApiKey: '',
+    llmModel: 'deepseek-chat',
+    lastSyncAt: '',
+  }
 }
 
 /** Parse an unknown JSON record into credentials (tolerates missing keys). */
@@ -71,10 +121,23 @@ function parse(raw: unknown): WereadCredentials {
   const str = (value: unknown): string => (typeof value === 'string' ? value : '')
   const limit = (value: unknown): number =>
     typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 20
+  const dest = (value: unknown): ExportDest =>
+    value === 'local' || value === 'notion' ? value : (value === 'flomo' ? 'flomo' : 'flomo')
+  const bool = (value: unknown): boolean => value === true
+  const base = empty()
   return {
     apiKey: str(record.apiKey),
-    defaultFlomoTag: str(record.defaultFlomoTag) || '微信读书',
+    defaultFlomoTag: str(record.defaultFlomoTag) || base.defaultFlomoTag,
     exportLimit: limit(record.exportLimit),
+    exportDest: dest(record.exportDest),
+    localExportDir: str(record.localExportDir),
+    notionToken: str(record.notionToken),
+    notionTargetPageId: str(record.notionTargetPageId),
+    usePrompt: bool(record.usePrompt),
+    exportPrompt: str(record.exportPrompt) || base.exportPrompt,
+    llmBaseUrl: str(record.llmBaseUrl) || base.llmBaseUrl,
+    llmApiKey: str(record.llmApiKey),
+    llmModel: str(record.llmModel) || base.llmModel,
     lastSyncAt: str(record.lastSyncAt),
   }
 }
@@ -113,14 +176,22 @@ export class WereadStore {
       apiKeyMasked: cfg.apiKey.trim() !== '' ? mask(cfg.apiKey) : '',
       defaultFlomoTag: cfg.defaultFlomoTag,
       exportLimit: cfg.exportLimit,
+      exportDest: cfg.exportDest,
+      localExportDir: cfg.localExportDir,
+      notionConfigured: cfg.notionToken.trim() !== '',
+      notionTargetPageId: cfg.notionTargetPageId,
+      usePrompt: cfg.usePrompt,
+      llmConfigured: cfg.llmApiKey.trim() !== '',
+      llmBaseUrl: cfg.llmBaseUrl,
+      llmModel: cfg.llmModel,
       lastSyncAt: cfg.lastSyncAt,
       configPath: configPath(),
     }
   }
 
   /**
-   * Apply a config patch: apiKey / defaultFlomoTag / exportLimit replace,
-   * reset clears. Returns the public view.
+   * Apply a config patch: any supported field replaces, reset clears.
+   * Returns the public view.
    */
   async patch(args: Record<string, unknown> | undefined): Promise<WereadConfigView> {
     const cfg = await this.load()
@@ -135,6 +206,17 @@ export class WereadStore {
     if (args !== undefined && typeof args.exportLimit === 'number' && Number.isFinite(args.exportLimit)) {
       next.exportLimit = Math.max(0, Math.floor(args.exportLimit))
     }
+    if (args !== undefined && (args.exportDest === 'flomo' || args.exportDest === 'local' || args.exportDest === 'notion')) {
+      next.exportDest = args.exportDest
+    }
+    if (args !== undefined && typeof args.localExportDir === 'string') next.localExportDir = args.localExportDir.trim()
+    if (args !== undefined && typeof args.notionToken === 'string') next.notionToken = args.notionToken.trim()
+    if (args !== undefined && typeof args.notionTargetPageId === 'string') next.notionTargetPageId = args.notionTargetPageId.trim()
+    if (args !== undefined && typeof args.usePrompt === 'boolean') next.usePrompt = args.usePrompt
+    if (args !== undefined && typeof args.exportPrompt === 'string') next.exportPrompt = args.exportPrompt
+    if (args !== undefined && typeof args.llmBaseUrl === 'string') next.llmBaseUrl = args.llmBaseUrl.trim()
+    if (args !== undefined && typeof args.llmApiKey === 'string') next.llmApiKey = args.llmApiKey.trim()
+    if (args !== undefined && typeof args.llmModel === 'string') next.llmModel = args.llmModel.trim()
     if (args !== undefined && typeof args.lastSyncAt === 'string') next.lastSyncAt = args.lastSyncAt
     await this.save(next)
     return this.view()
