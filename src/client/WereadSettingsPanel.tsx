@@ -77,6 +77,7 @@ function statusText(view: WereadStatusView | null): string {
   return (
     '已配置 · Key ' + view.apiKeyMasked +
     ' · 默认 flomo 标签 #' + view.defaultFlomoTag +
+    ' · 导出策略 ' + (view.exportLimit === 0 ? '全部' : view.exportLimit + ' 条') +
     ' · flomo ' + (view.flomoConfigured ? '已配置' : '未配置') +
     ' · 缓存书架 ' + view.cachedShelfBooks + ' 本 / 有笔记 ' + view.cachedNoteBooks + ' 本' +
     (view.lastSyncAt !== '' ? ' · 最近同步 ' + view.lastSyncAt : '')
@@ -88,11 +89,20 @@ export function WereadSettingsPanel(): JSX.Element {
   const [view, setView] = useState<WereadStatusView | null>(null)
   const [apiKey, setApiKey] = useState('')
   const [defaultFlomoTag, setDefaultFlomoTag] = useState('')
+  const [limitChoice, setLimitChoice] = useState('20')
+  const [customLimit, setCustomLimit] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [books, setBooks] = useState<WereadBook[]>([])
   const [bookId, setBookId] = useState('')
   const [flomoTag, setFlomoTag] = useState('')
+
+  /** Map the persisted exportLimit to the choice selector. */
+  const limitFromView = (value: number): string => {
+    if (value === 0) return '0'
+    if ([20, 50, 100].includes(value)) return String(value)
+    return 'custom'
+  }
 
   const refresh = useCallback(async () => {
     try {
@@ -100,6 +110,8 @@ export function WereadSettingsPanel(): JSX.Element {
       setView(next)
       setDefaultFlomoTag((prev) => prev === '' ? next.defaultFlomoTag : prev)
       setFlomoTag((prev) => prev === '' ? next.defaultFlomoTag : prev)
+      setLimitChoice(limitFromView(next.exportLimit))
+      if (![0, 20, 50, 100].includes(next.exportLimit)) setCustomLimit(String(next.exportLimit))
     } catch (error) {
       setMessage('状态读取失败: ' + String(error instanceof Error ? error.message : error))
     }
@@ -123,6 +135,15 @@ export function WereadSettingsPanel(): JSX.Element {
     void reloadBooks()
   }, [reloadBooks])
 
+  /** Resolve the chosen export limit to a number (0 = all). */
+  const resolveExportLimit = (): number => {
+    if (limitChoice === 'custom') {
+      const parsed = Number(customLimit)
+      return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0
+    }
+    return Number(limitChoice) || 0
+  }
+
   const saveConfig = async (): Promise<void> => {
     setBusy(true)
     setMessage('')
@@ -130,6 +151,7 @@ export function WereadSettingsPanel(): JSX.Element {
       const patch: Record<string, unknown> = {}
       if (apiKey.trim() !== '') patch.apiKey = apiKey.trim()
       if (defaultFlomoTag.trim() !== '') patch.defaultFlomoTag = defaultFlomoTag.trim()
+      patch.exportLimit = resolveExportLimit()
       const next: WereadConfigView = await api.setConfig(patch)
       setView({ ...next, flomoConfigured: view?.flomoConfigured ?? false, cachedShelfBooks: view?.cachedShelfBooks ?? 0, cachedNoteBooks: view?.cachedNoteBooks ?? 0, cacheUpdatedAt: view?.cacheUpdatedAt ?? '' })
       setMessage(next.configured ? '配置已保存。' : '配置未保存完整：缺少 API Key。')
@@ -215,11 +237,27 @@ export function WereadSettingsPanel(): JSX.Element {
       <div style={s.row}>
         <span style={s.label}>默认导出标签</span>
         <input
-          style={{ ...s.input, width: '180px' }}
+          style={{ ...s.input, width: '150px' }}
           placeholder="如 读书笔记（存配置）"
           value={defaultFlomoTag}
           onChange={(e) => setDefaultFlomoTag(e.target.value)}
         />
+        <span style={s.label}>导出条数</span>
+        <select style={{ ...s.select, flex: 0, minWidth: '110px' }} value={limitChoice} onChange={(e) => setLimitChoice(e.target.value)}>
+          <option value="0">全部导出</option>
+          <option value="20">20 条（默认）</option>
+          <option value="50">50 条</option>
+          <option value="100">100 条</option>
+          <option value="custom">自定义…</option>
+        </select>
+        {limitChoice === 'custom' && (
+          <input
+            style={{ ...s.input, width: '70px' }}
+            placeholder="条数"
+            value={customLimit}
+            onChange={(e) => setCustomLimit(e.target.value)}
+          />
+        )}
         <div style={s.flex} />
         <button style={s.button} onClick={() => void saveConfig()} disabled={busy}>保存配置</button>
         <button style={s.button} onClick={() => void runTest()} disabled={busy || !view?.configured}>测试连接</button>
@@ -252,6 +290,10 @@ export function WereadSettingsPanel(): JSX.Element {
       {message !== '' && <div style={s.msg}>{message}</div>}
       <div style={s.hint}>
         【API Key】打开 https://weread.qq.com/r/weread-skills → 微信读书账号登录 → 「创建 Key」→ 复制（wrk- 开头）。Key 绑定你的账号身份，可读取你的读书数据，请勿泄露。存于 ~/.dsh/weixinread-flomo.json（权限 0600）。
+      </div>
+      <div style={s.hint}>
+        【导出条数】「全部导出」= 把这本书的所有划线都发到 flomo，内容超长会自动拆成多条 MEMO（每条约 1800 字符）；
+        「20/50/100 条」= 每本书最多导出的划线条数；「自定义」= 填你自己的数字。该项存进插件配置，weread_flomo 工具与面板导出都遵循（工具也可用 limit 参数临时覆盖）。
       </div>
       <div style={s.hint}>
         【flomo 标签】flomo 没有「目录」，标签就是写进 MEMO 的 #标签（如 #读书笔记），用于分类归档。

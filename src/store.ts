@@ -37,6 +37,8 @@ export interface WereadCredentials {
   apiKey: string
   /** Default flomo tag for weread_flomo exports (without leading #). */
   defaultFlomoTag: string
+  /** Highlights per export: 0 = export ALL, N > 0 = cap at N. */
+  exportLimit: number
   /** ISO timestamp of the last successful sync. */
   lastSyncAt: string
 }
@@ -46,6 +48,7 @@ export interface WereadConfigView {
   configured: boolean
   apiKeyMasked: string
   defaultFlomoTag: string
+  exportLimit: number
   lastSyncAt: string
   configPath: string
 }
@@ -59,16 +62,19 @@ export function mask(value: string): string {
 
 /** Empty credentials record. */
 function empty(): WereadCredentials {
-  return { apiKey: '', defaultFlomoTag: '微信读书', lastSyncAt: '' }
+  return { apiKey: '', defaultFlomoTag: '微信读书', exportLimit: 20, lastSyncAt: '' }
 }
 
 /** Parse an unknown JSON record into credentials (tolerates missing keys). */
 function parse(raw: unknown): WereadCredentials {
   const record = typeof raw === 'object' && raw !== null ? raw as Record<string, unknown> : {}
   const str = (value: unknown): string => (typeof value === 'string' ? value : '')
+  const limit = (value: unknown): number =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 20
   return {
     apiKey: str(record.apiKey),
     defaultFlomoTag: str(record.defaultFlomoTag) || '微信读书',
+    exportLimit: limit(record.exportLimit),
     lastSyncAt: str(record.lastSyncAt),
   }
 }
@@ -106,14 +112,15 @@ export class WereadStore {
       configured: cfg.apiKey.trim() !== '',
       apiKeyMasked: cfg.apiKey.trim() !== '' ? mask(cfg.apiKey) : '',
       defaultFlomoTag: cfg.defaultFlomoTag,
+      exportLimit: cfg.exportLimit,
       lastSyncAt: cfg.lastSyncAt,
       configPath: configPath(),
     }
   }
 
   /**
-   * Apply a config patch: apiKey / defaultFlomoTag replace, reset clears.
-   * Returns the public view.
+   * Apply a config patch: apiKey / defaultFlomoTag / exportLimit replace,
+   * reset clears. Returns the public view.
    */
   async patch(args: Record<string, unknown> | undefined): Promise<WereadConfigView> {
     const cfg = await this.load()
@@ -124,6 +131,9 @@ export class WereadStore {
     if (args !== undefined && typeof args.apiKey === 'string') next.apiKey = args.apiKey.trim()
     if (args !== undefined && typeof args.defaultFlomoTag === 'string') {
       next.defaultFlomoTag = args.defaultFlomoTag.trim().replace(/^#+/, '') || '微信读书'
+    }
+    if (args !== undefined && typeof args.exportLimit === 'number' && Number.isFinite(args.exportLimit)) {
+      next.exportLimit = Math.max(0, Math.floor(args.exportLimit))
     }
     if (args !== undefined && typeof args.lastSyncAt === 'string') next.lastSyncAt = args.lastSyncAt
     await this.save(next)

@@ -36,7 +36,7 @@ export declare function apply(ctx: Context, config?: Config): void;
 export { WereadStore, mask, configPath, cachePath, type WereadConfigView, type WereadCredentials } from './store.ts';
 export { WereadApi, WereadApiError, WEREAD_GATEWAY, SKILL_VERSION, type BookInfo, type ShelfBook, type NotebookEntry, type Highlight, type MineReviewEntry } from './api.ts';
 export { wereadStatusTool, wereadConfigTool, wereadSearchTool, wereadBookTool, wereadShelfTool, wereadNotesTool, wereadReaddataTool, wereadSyncTool, wereadFlomoTool, buildTools, type ToolContext } from './tools.ts';
-export { doSync, readCache, writeCache, emptyCache, buildNotesMarkdown, buildFlomoMemo, formatDate, formatDuration, formatRating, dateLabel, deepLink, shelfLine, notebookLines, type WereadCache } from './cache.ts';
+export { doSync, readCache, writeCache, emptyCache, buildNotesMarkdown, buildFlomoMemo, buildFlomoMemos, FLOMO_MAX_CHARS, formatDate, formatDuration, formatRating, dateLabel, deepLink, shelfLine, notebookLines, type WereadCache } from './cache.ts';
 export { resolveFlomoUrl, flomoConfigured, postMemo, buildTaggedContent, FLOMO_CONFIG_FILE } from './flomo.ts';
 export { makeRoutes, WEREAD_API } from './routes.ts';
 export { defineTool };

@@ -14,7 +14,7 @@ import type { WereadStore } from './store.ts'
 import { flomoConfigured, resolveFlomoUrl, postMemo, buildTaggedContent } from './flomo.ts'
 import {
   readCache, doSync, dateLabel, formatDate, formatDuration, formatRating, deepLink,
-  shelfLine, notebookLines, buildNotesMarkdown, buildFlomoMemo, chapterTitleMap,
+  shelfLine, notebookLines, buildNotesMarkdown, buildFlomoMemo, buildFlomoMemos, chapterTitleMap,
 } from './cache.ts'
 
 /** One text content block (the only render shape these tools emit). */
@@ -63,7 +63,7 @@ function formatCount(n: number): string {
 export function wereadStatusTool(ctx: ToolContext) {
   return defineTool({
     name: 'weread_status',
-    description: '查看 weixinread-flomo 插件状态：是否已配置微信读书 API Key、Key 掩码、默认 flomo 标签、最近同步时间、缓存规模，以及 flomo 是否已配置（供 weread_flomo 联动导出）。不会泄露 Key。',
+    description: '查看 weixinread-flomo 插件状态：是否已配置微信读书 API Key、Key 掩码、默认 flomo 标签、导出条数策略（0=全部）、最近同步时间、缓存规模，以及 flomo 是否已配置（供 weread_flomo 联动导出）。不会泄露 Key。',
     parameters: {},
     output: {
       schema: {
@@ -75,6 +75,7 @@ export function wereadStatusTool(ctx: ToolContext) {
           configured: { type: 'boolean' },
           apiKeyMasked: { type: 'string' },
           defaultFlomoTag: { type: 'string' },
+          exportLimit: { type: 'number' },
           lastSyncAt: { type: 'string' },
           flomoConfigured: { type: 'boolean' },
           configPath: { type: 'string' },
@@ -91,6 +92,7 @@ export function wereadStatusTool(ctx: ToolContext) {
           ? '已配置：API Key ' + view.apiKeyMasked + '（在 https://weread.qq.com/r/weread-skills 创建）'
           : '未配置：请先调用 weread_config 填入 API Key（https://weread.qq.com/r/weread-skills 登录后「创建 Key」）。',
         '默认 flomo 标签：#' + view.defaultFlomoTag + (flomoOk ? '（flomo 已配置）' : '（flomo 未配置，weread_flomo 不可用）'),
+        '导出条数：' + (view.exportLimit === 0 ? '全部导出（超长自动拆多条 MEMO）' : '最多 ' + view.exportLimit + ' 条'),
         '最近同步：' + (view.lastSyncAt !== '' ? view.lastSyncAt : '从未同步（可 weread_sync）'),
         '缓存：书架 ' + cache.shelfBooks.length + ' 本 · 有笔记的书 ' + cache.notebooks.filter((b) => (b.reviewCount ?? 0) + (b.noteCount ?? 0) + (b.bookmarkCount ?? 0) > 0).length + ' 本',
         '配置路径：' + view.configPath,
@@ -101,6 +103,7 @@ export function wereadStatusTool(ctx: ToolContext) {
         configured: view.configured,
         apiKeyMasked: view.apiKeyMasked,
         defaultFlomoTag: view.defaultFlomoTag,
+        exportLimit: view.exportLimit,
         lastSyncAt: view.lastSyncAt,
         flomoConfigured: flomoOk,
         configPath: view.configPath,
@@ -109,14 +112,15 @@ export function wereadStatusTool(ctx: ToolContext) {
   })
 }
 
-/** Config tool: set/clear the API key and the default flomo tag. */
+/** Config tool: set/clear the API key, default flomo tag, and export limit. */
 export function wereadConfigTool(ctx: ToolContext) {
   return defineTool({
     name: 'weread_config',
-    description: '配置或清除 weixinread-flomo 的微信读书凭据：apiKey 为官方 Skills API Key（wrk- 开头，在 https://weread.qq.com/r/weread-skills 登录后「创建 Key」获取）；defaultFlomoTag 为 weread_flomo 导出时的默认标签（自动补 #）；test: true 时保存后立即测试连接。reset: true 清除凭据。凭据持久化到 ~/.dsh/weixinread-flomo.json（权限 0600）。',
+    description: '配置或清除 weixinread-flomo 的微信读书凭据：apiKey 为官方 Skills API Key（wrk- 开头，在 https://weread.qq.com/r/weread-skills 登录后「创建 Key」获取）；defaultFlomoTag 为 weread_flomo 导出时的默认标签（自动补 #）；exportLimit 为每次导出的划线条数（0=全部导出，超长自动拆多条 MEMO）；test: true 时保存后立即测试连接。reset: true 清除凭据。凭据持久化到 ~/.dsh/weixinread-flomo.json（权限 0600）。',
     parameters: {
       apiKey: { type: 'string', description: '微信读书 Skills API Key（wrk- 开头）' },
       defaultFlomoTag: { type: 'string', description: 'weread_flomo 默认标签（不带 #，如 读书笔记）' },
+      exportLimit: { type: 'number', description: '每次导出的划线条数：0=全部导出，N>0=最多 N 条（默认 20）' },
       test: { type: 'boolean', description: 'true 时保存后立即测试连接' },
       reset: { type: 'boolean', description: '设为 true 清除全部凭据' },
     },
@@ -130,18 +134,19 @@ export function wereadConfigTool(ctx: ToolContext) {
           configured: { type: 'boolean' },
           apiKeyMasked: { type: 'string' },
           defaultFlomoTag: { type: 'string' },
+          exportLimit: { type: 'number' },
           lastSyncAt: { type: 'string' },
           configPath: { type: 'string' },
         },
       },
       render: (_args: unknown, value: Record<string, unknown>) => text(String(value.message ?? '')),
     },
-    async execute(args: { apiKey?: string; defaultFlomoTag?: string; test?: boolean; reset?: boolean }) {
+    async execute(args: { apiKey?: string; defaultFlomoTag?: string; exportLimit?: number; test?: boolean; reset?: boolean }) {
       const view = await ctx.store.patch(args)
       if (!view.configured) {
-        return { ok: false, message: '配置未生效：缺少 API Key。请在 https://weread.qq.com/r/weread-skills 登录后创建 Key 并填入。', configured: view.configured, apiKeyMasked: view.apiKeyMasked, defaultFlomoTag: view.defaultFlomoTag, lastSyncAt: view.lastSyncAt, configPath: view.configPath }
+        return { ok: false, message: '配置未生效：缺少 API Key。请在 https://weread.qq.com/r/weread-skills 登录后创建 Key 并填入。', configured: view.configured, apiKeyMasked: view.apiKeyMasked, defaultFlomoTag: view.defaultFlomoTag, exportLimit: view.exportLimit, lastSyncAt: view.lastSyncAt, configPath: view.configPath }
       }
-      const parts = ['已保存配置：API Key ' + view.apiKeyMasked + '，默认 flomo 标签 #' + view.defaultFlomoTag]
+      const parts = ['已保存配置：API Key ' + view.apiKeyMasked + '，默认 flomo 标签 #' + view.defaultFlomoTag + '，导出策略 ' + (view.exportLimit === 0 ? '全部导出' : '最多 ' + view.exportLimit + ' 条')]
       if (args?.test === true) {
         try {
           await (await requireApi(ctx)).list()
@@ -150,7 +155,7 @@ export function wereadConfigTool(ctx: ToolContext) {
           parts.push('连接测试：失败（' + apiError(error) + '）')
         }
       }
-      return { ok: true, message: parts.join('；') + '。', configured: view.configured, apiKeyMasked: view.apiKeyMasked, defaultFlomoTag: view.defaultFlomoTag, lastSyncAt: view.lastSyncAt, configPath: view.configPath }
+      return { ok: true, message: parts.join('；') + '。', configured: view.configured, apiKeyMasked: view.apiKeyMasked, defaultFlomoTag: view.defaultFlomoTag, exportLimit: view.exportLimit, lastSyncAt: view.lastSyncAt, configPath: view.configPath }
     },
   })
 }
@@ -589,11 +594,11 @@ export function wereadSyncTool(ctx: ToolContext) {
 export function wereadFlomoTool(ctx: ToolContext) {
   return defineTool({
     name: 'weread_flomo',
-    description: '把微信读书某本书的划线导出到 flomo（浮墨笔记）：发送一条带 #标签 的 MEMO（书名 + 划线列表，可 limit 控制条数）。标签可用 tag 参数自定义（不填用插件默认标签，见 weread_status）。复用 ~/.dsh/dsh-flomo.json 的 flomo 凭据，无需重复配置。',
+    description: '把微信读书某本书的划线导出到 flomo（浮墨笔记）：发送带 #标签 的 MEMO（书名 + 划线列表）。默认按插件配置的导出条数（exportLimit，见 weread_status / 设置面板「微信读书」；0=全部导出，超长自动拆成多条 MEMO 发送）。limit 参数可临时覆盖（0=全部）。标签可用 tag 参数自定义（不填用插件默认标签）。复用 ~/.dsh/dsh-flomo.json 的 flomo 凭据，无需重复配置。',
     parameters: {
       bookId: { type: 'string', required: true, description: '书籍 bookId（来自 weread_shelf / weread_search）' },
       tag: { type: 'string', description: 'flomo 标签（不带 #，可用空格分隔多个，如 读书笔记 微信读书）' },
-      limit: { type: 'number', description: '最多导出的划线条数（默认 20）' },
+      limit: { type: 'number', description: '临时覆盖导出条数：0=全部导出，N>0=最多 N 条（不填用配置 exportLimit）' },
     },
     output: {
       schema: {
@@ -603,6 +608,7 @@ export function wereadFlomoTool(ctx: ToolContext) {
           ok: { type: 'boolean', required: true },
           message: { type: 'string', required: true },
           sent: { type: 'number' },
+          memoCount: { type: 'number' },
           bookId: { type: 'string' },
         },
       },
@@ -615,7 +621,6 @@ export function wereadFlomoTool(ctx: ToolContext) {
       if (flomoUrl === null) {
         return { ok: false, message: 'flomo 未配置：请先在 Web 设置页「Flomo」面板或 flomo_config 配置 API URL / API Key（flomo 设置页 https://flomoapp.com/mine?source=incoming_webhook 获取）。', sent: 0, bookId }
       }
-      const limit = typeof args?.limit === 'number' && args.limit > 0 ? Math.min(Math.floor(args.limit), 100) : 20
       try {
         const api = await requireApi(ctx)
         const [bookmarks, info] = await Promise.all([
@@ -628,17 +633,36 @@ export function wereadFlomoTool(ctx: ToolContext) {
         }
         const view = await ctx.store.view()
         const tag = (args?.tag ?? '').trim() || view.defaultFlomoTag
-        const memo = buildFlomoMemo(info?.title ?? '未知书名', highlights, bookmarks.chapters, highlights.length, limit)
-        const full = buildTaggedContent(memo, tag)
-        const result = await postMemo(flomoUrl, full)
-        return {
-          ok: result.ok,
-          message: (result.ok ? '已导出 ' + Math.min(highlights.length, limit) + ' 条划线到 flomo（#' + tag + '）。' : '发送失败：' + result.message),
-          sent: result.ok ? Math.min(highlights.length, limit) : 0,
-          bookId,
+        const title = info?.title ?? '未知书名'
+        // limit resolution: explicit arg wins, else the config exportLimit (0 = export all).
+        const limit = typeof args?.limit === 'number' && Number.isFinite(args.limit)
+          ? Math.max(0, Math.floor(args.limit))
+          : view.exportLimit
+
+        let memos: string[]
+        let exported: number
+        if (limit === 0 || limit >= highlights.length) {
+          memos = buildFlomoMemos(title, highlights, bookmarks.chapters)
+          exported = highlights.length
+        } else {
+          memos = [buildFlomoMemo(title, highlights, bookmarks.chapters, highlights.length, limit)]
+          exported = Math.min(highlights.length, limit)
         }
+
+        let sent = 0
+        let failed = 0
+        for (const memo of memos) {
+          const result = await postMemo(flomoUrl, buildTaggedContent(memo, tag))
+          if (result.ok) sent += 1
+          else failed += 1
+        }
+        const scope = limit === 0 || limit >= highlights.length ? '全部 ' + highlights.length + ' 条' : exported + ' 条（共 ' + highlights.length + ' 条）'
+        const summary = sent > 0
+          ? '已导出 ' + scope + ' 划线到 flomo（#' + tag + '）：' + sent + ' 条 MEMO 发送成功' + (failed > 0 ? '，' + failed + ' 条失败' : '') + '。'
+          : '发送失败：' + (failed > 0 ? '全部 ' + memos.length + ' 条 MEMO 发送失败' : '未知错误')
+        return { ok: failed === 0, message: summary, sent: exported, memoCount: memos.length, bookId }
       } catch (error) {
-        return { ok: false, message: '导出失败：' + apiError(error), sent: 0, bookId }
+        return { ok: false, message: '导出失败：' + apiError(error), sent: 0, memoCount: 0, bookId }
       }
     },
   })

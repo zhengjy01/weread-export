@@ -22,6 +22,8 @@ export interface WereadCredentials {
     apiKey: string;
     /** Default flomo tag for weread_flomo exports (without leading #). */
     defaultFlomoTag: string;
+    /** Highlights per export: 0 = export ALL, N > 0 = cap at N. */
+    exportLimit: number;
     /** ISO timestamp of the last successful sync. */
     lastSyncAt: string;
 }
@@ -30,6 +32,7 @@ export interface WereadConfigView {
     configured: boolean;
     apiKeyMasked: string;
     defaultFlomoTag: string;
+    exportLimit: number;
     lastSyncAt: string;
     configPath: string;
 }
@@ -47,8 +50,8 @@ export declare class WereadStore {
     /** Public, secret-free view. */
     view(): Promise<WereadConfigView>;
     /**
-     * Apply a config patch: apiKey / defaultFlomoTag replace, reset clears.
-     * Returns the public view.
+     * Apply a config patch: apiKey / defaultFlomoTag / exportLimit replace,
+     * reset clears. Returns the public view.
      */
     patch(args: Record<string, unknown> | undefined): Promise<WereadConfigView>;
 }

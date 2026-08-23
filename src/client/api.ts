@@ -8,6 +8,8 @@ export interface WereadConfigView {
   configured: boolean
   apiKeyMasked: string
   defaultFlomoTag: string
+  /** 0 = export ALL highlights; N > 0 = cap at N. */
+  exportLimit: number
   lastSyncAt: string
   configPath: string
 }
@@ -40,6 +42,7 @@ export interface WereadFlomoResult {
   ok: boolean
   message: string
   sent: number
+  memoCount?: number
   bookId?: string
 }
 

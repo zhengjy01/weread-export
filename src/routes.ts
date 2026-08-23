@@ -9,7 +9,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WereadStore } from './store.ts'
 import { WereadApi } from './api.ts'
-import { readCache, doSync, buildFlomoMemo } from './cache.ts'
+import { readCache, doSync, buildFlomoMemo, buildFlomoMemos } from './cache.ts'
 import { resolveFlomoUrl, postMemo, buildTaggedContent } from './flomo.ts'
 
 /** Route paths. */
@@ -225,7 +225,10 @@ export function makeRoutes(deps: RouteContext) {
           writeJson(res, 400, { error: 'flomo 未配置：请先在 Web 设置页「Flomo」面板配置 API URL / API Key。' })
           return
         }
-        const limit = typeof body.limit === 'number' && body.limit > 0 ? Math.min(Math.floor(body.limit), 100) : 20
+        // limit resolution: explicit body arg wins, else the config exportLimit (0 = export all).
+        const limit = typeof body.limit === 'number' && Number.isFinite(body.limit)
+          ? Math.max(0, Math.floor(body.limit))
+          : view.exportLimit
         try {
           const api = await apiFor(store)
           const [bookmarks, info] = await Promise.all([
@@ -238,14 +241,33 @@ export function makeRoutes(deps: RouteContext) {
             return
           }
           const tag = (typeof body.tag === 'string' && body.tag.trim() !== '' ? body.tag.trim() : view.defaultFlomoTag)
-          const memo = buildFlomoMemo(info?.title ?? '未知书名', highlights, bookmarks.chapters, highlights.length, limit)
-          const result = await postMemo(flomoUrl, buildTaggedContent(memo, tag))
+          const title = info?.title ?? '未知书名'
+
+          let memos: string[]
+          let exported: number
+          if (limit === 0 || limit >= highlights.length) {
+            memos = buildFlomoMemos(title, highlights, bookmarks.chapters)
+            exported = highlights.length
+          } else {
+            memos = [buildFlomoMemo(title, highlights, bookmarks.chapters, highlights.length, limit)]
+            exported = Math.min(highlights.length, limit)
+          }
+
+          let sent = 0
+          let failed = 0
+          for (const memo of memos) {
+            const result = await postMemo(flomoUrl, buildTaggedContent(memo, tag))
+            if (result.ok) sent += 1
+            else failed += 1
+          }
+          const scope = limit === 0 || limit >= highlights.length ? '全部 ' + highlights.length + ' 条' : exported + ' 条（共 ' + highlights.length + ' 条）'
           writeJson(res, 200, {
-            ok: result.ok,
-            message: result.ok
-              ? '已导出 ' + Math.min(highlights.length, limit) + ' 条划线到 flomo（#' + tag + '）。'
-              : '发送失败：' + result.message,
-            sent: result.ok ? Math.min(highlights.length, limit) : 0,
+            ok: failed === 0,
+            message: sent > 0
+              ? '已导出 ' + scope + ' 划线到 flomo（#' + tag + '）：' + sent + ' 条 MEMO 发送成功' + (failed > 0 ? '，' + failed + ' 条失败' : '') + '。'
+              : '发送失败：全部 ' + memos.length + ' 条 MEMO 发送失败',
+            sent: exported,
+            memoCount: memos.length,
             bookId,
           })
         } catch (error) {

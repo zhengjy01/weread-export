@@ -224,7 +224,7 @@ export function buildNotesMarkdown(
   return lines.join('\n')
 }
 
-/** One flomo memo body for a book's highlights. */
+/** One flomo memo body for a book's highlights (truncated at `limit`). */
 export function buildFlomoMemo(
   title: string,
   highlights: Highlight[],
@@ -240,4 +240,35 @@ export function buildFlomoMemo(
   }
   if (total > limit) lines.push('…（共 ' + total + ' 条，仅导出前 ' + limit + ' 条）')
   return lines.join('\n')
+}
+
+/** Safe per-memo size cap (flomo does not document a hard limit; stay conservative). */
+export const FLOMO_MAX_CHARS = 1800
+
+/**
+ * Split a book's highlights into one or more flomo memo bodies so that
+ * ALL highlights are exported — long lists are chunked by character count,
+ * never truncated. A single over-long highlight becomes its own memo.
+ */
+export function buildFlomoMemos(
+  title: string,
+  highlights: Highlight[],
+  chapters: Chapter[] | undefined,
+  maxChars = FLOMO_MAX_CHARS,
+): string[] {
+  const chapterMap = chapterTitleMap(chapters)
+  const header = '📖《' + title + '》划线摘录 · 共 ' + highlights.length + ' 条'
+  const memos: string[] = []
+  let current = header
+  for (const h of highlights) {
+    const chapter = typeof h.chapterUid === 'number' ? chapterMap.get(h.chapterUid) : undefined
+    const line = '- “' + (h.markText ?? '').trim() + '”' + (chapter ? '（' + chapter + '）' : '')
+    if (current.length + 1 + line.length > maxChars && current !== header) {
+      memos.push(current)
+      current = header + '（续）'
+    }
+    current += '\n' + line
+  }
+  memos.push(current)
+  return memos
 }

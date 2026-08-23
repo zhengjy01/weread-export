@@ -13,7 +13,7 @@ export interface ToolContext {
 }
 /** Status tool: configuration + cache + flomo linkage. */
 export declare function wereadStatusTool(ctx: ToolContext): import("@deepseek-ai/dsh-tools").ToolDefinition;
-/** Config tool: set/clear the API key and the default flomo tag. */
+/** Config tool: set/clear the API key, default flomo tag, and export limit. */
 export declare function wereadConfigTool(ctx: ToolContext): import("@deepseek-ai/dsh-tools").ToolDefinition;
 /** Search tool: book store search. */
 export declare function wereadSearchTool(ctx: ToolContext): import("@deepseek-ai/dsh-tools").ToolDefinition;

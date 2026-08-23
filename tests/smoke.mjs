@@ -8,7 +8,7 @@ import path from 'node:path'
 import assert from 'node:assert/strict'
 import {
   WereadStore, WereadApi, WereadApiError, mask,
-  formatDate, formatDuration, formatRating, deepLink, buildNotesMarkdown, buildFlomoMemo,
+  formatDate, formatDuration, formatRating, deepLink, buildNotesMarkdown, buildFlomoMemo, buildFlomoMemos,
   emptyCache, readCache, writeCache, buildTaggedContent, shelfLine, notebookLines,
 } from '../lib/index.js'
 
@@ -73,6 +73,22 @@ check('buildFlomoMemo', () => {
   assert.ok(memo.includes('共 5 条'), memo)
   assert.ok(memo.includes('仅导出前 2 条'), memo)
 })
+check('buildFlomoMemos chunks all highlights', () => {
+  const highlights = Array.from({ length: 60 }, (_, i) => ({ markText: '划线内容第 ' + (i + 1) + ' 条，这是一段足够长的文字以触发分片。' + '填充'.repeat(30) }))
+  const memos = buildFlomoMemos('长书', highlights, undefined)
+  assert.ok(memos.length > 1, 'expected multiple memos, got ' + memos.length)
+  // every highlight appears across the memos, none dropped
+  const joined = memos.join('\n')
+  for (const h of highlights) assert.ok(joined.includes(h.markText.slice(0, 10)), 'missing ' + h.markText.slice(0, 10))
+  // each memo stays under the size cap (header + continuation lines may push a bit)
+  for (const memo of memos) assert.ok(memo.length <= 1800 + 64, 'memo too long: ' + memo.length)
+})
+check('buildFlomoMemos single memo when short', () => {
+  const highlights = [{ markText: '短划线' }, { markText: '另一条' }]
+  const memos = buildFlomoMemos('短书', highlights, undefined)
+  assert.equal(memos.length, 1)
+  assert.ok(memos[0].includes('共 2 条'), memos[0])
+})
 check('buildTaggedContent', () => {
   assert.equal(buildTaggedContent('hello', '读书笔记 微信读书'), 'hello #读书笔记 #微信读书')
   assert.equal(buildTaggedContent('hello', '#读书笔记'), 'hello #读书笔记')
@@ -109,19 +125,25 @@ check('read/write/empty', async () => {
 })
 
 console.log('store')
-check('patch/view/mask', async () => {
+check('patch/view/mask + exportLimit', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'weixinread-flomo-'))
   process.env.DSH_WEREAD_CONFIG = path.join(dir, 'config.json')
   try {
     const store = new WereadStore()
     let view = await store.view()
     assert.equal(view.configured, false)
+    assert.equal(view.exportLimit, 20, 'default export limit should be 20')
     view = await store.patch({ apiKey: 'wrk-test123456789', defaultFlomoTag: '读书笔记' })
     assert.equal(view.configured, true)
     assert.equal(view.apiKeyMasked, 'wrk-****6789')
     assert.equal(view.defaultFlomoTag, '读书笔记')
+    view = await store.patch({ exportLimit: 0 })
+    assert.equal(view.exportLimit, 0, 'exportLimit 0 = export all')
+    view = await store.patch({ exportLimit: 150 })
+    assert.equal(view.exportLimit, 150)
     view = await store.patch({ reset: true })
     assert.equal(view.configured, false)
+    assert.equal(view.exportLimit, 20, 'reset restores default limit')
   } finally {
     delete process.env.DSH_WEREAD_CONFIG
     await rm(dir, { recursive: true, force: true })

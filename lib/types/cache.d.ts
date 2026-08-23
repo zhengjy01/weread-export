@@ -45,5 +45,13 @@ export declare function shelfLine(book: ShelfBook, progressByBookId: Map<string,
 export declare function notebookLines(entries: NotebookEntry[]): string[];
 /** Per-book notes markdown: highlights + thoughts. */
 export declare function buildNotesMarkdown(title: string, author: string, highlights: Highlight[], thoughts: MineReviewEntry[], chapters: Chapter[] | undefined): string;
-/** One flomo memo body for a book's highlights. */
+/** One flomo memo body for a book's highlights (truncated at `limit`). */
 export declare function buildFlomoMemo(title: string, highlights: Highlight[], chapters: Chapter[] | undefined, total: number, limit: number): string;
+/** Safe per-memo size cap (flomo does not document a hard limit; stay conservative). */
+export declare const FLOMO_MAX_CHARS = 1800;
+/**
+ * Split a book's highlights into one or more flomo memo bodies so that
+ * ALL highlights are exported — long lists are chunked by character count,
+ * never truncated. A single over-long highlight becomes its own memo.
+ */
+export declare function buildFlomoMemos(title: string, highlights: Highlight[], chapters: Chapter[] | undefined, maxChars?: number): string[];

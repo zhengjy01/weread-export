@@ -33,9 +33,9 @@ const SECTION_ORDER = 160
 export const WEREAD_GUIDANCE =
   '本机已安装 weixinread-flomo 插件（微信读书集成）：配置一次官方 Skills API Key（wrk- 开头，在 https://weread.qq.com/r/weread-skills 用微信读书账号登录后「创建 Key」获取）后，' +
   '可用 weread_shelf 查看书架、weread_notes 导出划线/想法/书签（不给 bookId 时返回笔记本概览）、weread_search 搜索书城、weread_book 查看书籍详情/进度/章节、' +
-  'weread_readdata 查看阅读统计（weekly/monthly/annually/overall）、weread_sync 同步本地缓存、weread_flomo 把某本书的划线导出到 flomo（#标签可自定义）。' +
-  '凭据存 ~/.dsh/weixinread-flomo.json（权限 0600），同步快照存 ~/.dsh/weixinread-flomo-cache.json；weread_status 查看状态（不回显完整 Key）。' +
-  '也可在 Web 设置页「微信读书」面板中配置 Key、测试连接、同步与快捷导出到 flomo。' +
+  'weread_readdata 查看阅读统计（weekly/monthly/annually/overall）、weread_sync 同步本地缓存、weread_flomo 把某本书的划线导出到 flomo（#标签可自定义；默认按配置导出条数，0=全部导出、超长自动拆多条 MEMO）。' +
+  '凭据存 ~/.dsh/weixinread-flomo.json（权限 0600），同步快照存 ~/.dsh/weixinread-flomo-cache.json；weread_status 查看状态与导出策略（不回显完整 Key）。' +
+  '也可在 Web 设置页「微信读书」面板中配置 Key、导出条数（全部/20/50/100/自定义）、测试连接、同步与快捷导出到 flomo。' +
   '用户提到「微信读书 / weread / 读书笔记 / 导出划线 / 阅读统计」时即指本插件，请据此协作。'
 
 /** Plugin config, read from the composition row. */
@@ -107,7 +107,7 @@ export function apply(ctx: Context, config?: Config): void {
 export { WereadStore, mask, configPath, cachePath, type WereadConfigView, type WereadCredentials } from './store.ts'
 export { WereadApi, WereadApiError, WEREAD_GATEWAY, SKILL_VERSION, type BookInfo, type ShelfBook, type NotebookEntry, type Highlight, type MineReviewEntry } from './api.ts'
 export { wereadStatusTool, wereadConfigTool, wereadSearchTool, wereadBookTool, wereadShelfTool, wereadNotesTool, wereadReaddataTool, wereadSyncTool, wereadFlomoTool, buildTools, type ToolContext } from './tools.ts'
-export { doSync, readCache, writeCache, emptyCache, buildNotesMarkdown, buildFlomoMemo, formatDate, formatDuration, formatRating, dateLabel, deepLink, shelfLine, notebookLines, type WereadCache } from './cache.ts'
+export { doSync, readCache, writeCache, emptyCache, buildNotesMarkdown, buildFlomoMemo, buildFlomoMemos, FLOMO_MAX_CHARS, formatDate, formatDuration, formatRating, dateLabel, deepLink, shelfLine, notebookLines, type WereadCache } from './cache.ts'
 export { resolveFlomoUrl, flomoConfigured, postMemo, buildTaggedContent, FLOMO_CONFIG_FILE } from './flomo.ts'
 export { makeRoutes, WEREAD_API } from './routes.ts'
 export { defineTool }
