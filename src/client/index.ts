@@ -1,5 +1,5 @@
 /**
- * dsh-weread — browser half. Registers the WeRead settings panel into the
+ * weixinread-flomo — browser half. Registers the WeRead settings panel into the
  * web settings page (settings.section entry). The panel configures the
  * Skills API key, default flomo tag, drives manual syncs, and quick-exports
  * highlights to flomo. Failure policy: registration problems are logged,
@@ -28,6 +28,6 @@ export function apply(ctx: ClientContext): void {
       label: () => '微信读书',
     }, WereadSettingsPanel))
   } catch (error) {
-    console.warn('[dsh-weread] settings panel registration failed:', error)
+    console.warn('[weixinread-flomo] settings panel registration failed:', error)
   }
 }

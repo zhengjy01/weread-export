@@ -1,5 +1,5 @@
 {
-  "name": "dsh-weread",
+  "name": "weixinread-flomo",
   "version": "0.1.0",
   "description": "微信读书 (WeChat Reading) integration for DeepSeek Harness: connect the official WeRead Skills Agent Gateway with a wrk- API key, then browse your bookshelf, export highlights & thoughts, query reading stats, and send highlights to flomo — agent tools plus a web settings panel",
   "type": "module",
@@ -44,7 +44,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zhengjy01/dsh-weread"
+    "url": "https://github.com/zhengjy01/weixinread-flomo"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"

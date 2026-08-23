@@ -1,5 +1,5 @@
 /**
- * Browser-side API client for the /api/dsh-weread route family. The only
+ * Browser-side API client for the /api/weixinread-flomo route family. The only
  * data access path the settings panel uses — plain fetch, same origin.
  */
 /** Public config view (mirrors the host contract). */

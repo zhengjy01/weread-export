@@ -1,7 +1,7 @@
 /**
- * dsh-weread — loopback HTTP routes for the web settings panel.
+ * weixinread-flomo — loopback HTTP routes for the web settings panel.
  *
- * Route family: /api/dsh-weread/*. All routes are loopback-only
+ * Route family: /api/weixinread-flomo/*. All routes are loopback-only
  * (127.0.0.1/localhost, same-origin) — the settings panel is the only
  * consumer.
  */
@@ -14,12 +14,12 @@ import { resolveFlomoUrl, postMemo, buildTaggedContent } from './flomo.ts'
 
 /** Route paths. */
 export const WEREAD_API = {
-  config: '/api/dsh-weread/config',
-  status: '/api/dsh-weread/status',
-  test: '/api/dsh-weread/test',
-  sync: '/api/dsh-weread/sync',
-  flomo: '/api/dsh-weread/flomo',
-  books: '/api/dsh-weread/books',
+  config: '/api/weixinread-flomo/config',
+  status: '/api/weixinread-flomo/status',
+  test: '/api/weixinread-flomo/test',
+  sync: '/api/weixinread-flomo/sync',
+  flomo: '/api/weixinread-flomo/flomo',
+  books: '/api/weixinread-flomo/books',
 } as const
 
 /** Cap on JSON request bodies. */
@@ -85,7 +85,7 @@ async function apiFor(store: WereadStore): Promise<WereadApi> {
 }
 
 /**
- * Build every /api/dsh-weread route (exact paths).
+ * Build every /api/weixinread-flomo route (exact paths).
  * @param deps - store (the API client is built lazily per request).
  * @returns the route list.
  */

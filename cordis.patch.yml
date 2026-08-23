@@ -1,14 +1,14 @@
-# dsh-weread bundle patch: inserts the plugin row into the profile roster.
+# weixinread-flomo bundle patch: inserts the plugin row into the profile roster.
 # Applied as a profile bundle layer (declared by the `dsh.bundle.patch`
 # manifest field in package.json). Activate with:
 #
 #   # local development (link)
-#   dsh plugin --profile web add link:/path/to/dsh-weread
+#   dsh plugin --profile web add link:/path/to/weixinread-flomo
 #   # after publishing to GitHub (repo tagged with the `dsh-plugin` topic)
-#   dsh plugin --profile web add github:zhengjy01/dsh-weread
+#   dsh plugin --profile web add github:zhengjy01/weixinread-flomo
 - insert:
     - id: weread
-      name: dsh-weread
+      name: weixinread-flomo
       config:
         announceToAgent: true   # 在系统提示中公告插件（工具 + 能力说明）
         enabled: true           # 插件总开关

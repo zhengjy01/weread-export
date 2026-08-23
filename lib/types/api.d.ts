@@ -1,5 +1,5 @@
 /**
- * dsh-weread — WeRead Skills Agent Gateway client.
+ * weixinread-flomo — WeRead Skills Agent Gateway client.
  *
  * Official interface: POST https://i.weread.qq.com/api/agent/gateway with
  * `Authorization: Bearer <wrk-...>`; the body carries `api_name`,

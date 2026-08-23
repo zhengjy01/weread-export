@@ -1,8 +1,8 @@
 /**
- * dsh-weread — local sync snapshot & render helpers.
+ * weixinread-flomo — local sync snapshot & render helpers.
  *
  * weread_sync pulls the bookshelf and the notebook overview into
- * ~/.dsh/dsh-weread-cache.json (mode 0600) so the settings panel and
+ * ~/.dsh/weixinread-flomo-cache.json (mode 0600) so the settings panel and
  * quick actions can render without hammering the gateway. Markdown
  * builders here are shared by the tools and the panel routes.
  */

@@ -1,5 +1,5 @@
 /**
- * dsh-weread — model-facing tools.
+ * weixinread-flomo — model-facing tools.
  *
  * Mounted via ctx.tools.register. Covers the WeRead surface: status,
  * config, search, book info, shelf, notes/highlights, reading stats,
@@ -63,7 +63,7 @@ function formatCount(n: number): string {
 export function wereadStatusTool(ctx: ToolContext) {
   return defineTool({
     name: 'weread_status',
-    description: '查看 dsh-weread 插件状态：是否已配置微信读书 API Key、Key 掩码、默认 flomo 标签、最近同步时间、缓存规模，以及 flomo 是否已配置（供 weread_flomo 联动导出）。不会泄露 Key。',
+    description: '查看 weixinread-flomo 插件状态：是否已配置微信读书 API Key、Key 掩码、默认 flomo 标签、最近同步时间、缓存规模，以及 flomo 是否已配置（供 weread_flomo 联动导出）。不会泄露 Key。',
     parameters: {},
     output: {
       schema: {
@@ -113,7 +113,7 @@ export function wereadStatusTool(ctx: ToolContext) {
 export function wereadConfigTool(ctx: ToolContext) {
   return defineTool({
     name: 'weread_config',
-    description: '配置或清除 dsh-weread 的微信读书凭据：apiKey 为官方 Skills API Key（wrk- 开头，在 https://weread.qq.com/r/weread-skills 登录后「创建 Key」获取）；defaultFlomoTag 为 weread_flomo 导出时的默认标签（自动补 #）；test: true 时保存后立即测试连接。reset: true 清除凭据。凭据持久化到 ~/.dsh/dsh-weread.json（权限 0600）。',
+    description: '配置或清除 weixinread-flomo 的微信读书凭据：apiKey 为官方 Skills API Key（wrk- 开头，在 https://weread.qq.com/r/weread-skills 登录后「创建 Key」获取）；defaultFlomoTag 为 weread_flomo 导出时的默认标签（自动补 #）；test: true 时保存后立即测试连接。reset: true 清除凭据。凭据持久化到 ~/.dsh/weixinread-flomo.json（权限 0600）。',
     parameters: {
       apiKey: { type: 'string', description: '微信读书 Skills API Key（wrk- 开头）' },
       defaultFlomoTag: { type: 'string', description: 'weread_flomo 默认标签（不带 #，如 读书笔记）' },
@@ -558,7 +558,7 @@ function formatAuthors(list: unknown): string {
 export function wereadSyncTool(ctx: ToolContext) {
   return defineTool({
     name: 'weread_sync',
-    description: '同步微信读书到本地缓存（~/.dsh/dsh-weread-cache.json）：拉取书架与笔记本概览（有笔记的书），更新最近同步时间。之后 weread_shelf useCache / 设置面板可读缓存。',
+    description: '同步微信读书到本地缓存（~/.dsh/weixinread-flomo-cache.json）：拉取书架与笔记本概览（有笔记的书），更新最近同步时间。之后 weread_shelf useCache / 设置面板可读缓存。',
     parameters: {},
     output: {
       schema: {

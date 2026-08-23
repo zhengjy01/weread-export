@@ -1,5 +1,5 @@
 /**
- * Browser-side API client for the /api/dsh-weread route family. The only
+ * Browser-side API client for the /api/weixinread-flomo route family. The only
  * data access path the settings panel uses — plain fetch, same origin.
  */
 
@@ -82,11 +82,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** The weread panel API. */
 export class WereadApi {
   async getConfig(): Promise<WereadConfigView> {
-    return request<WereadConfigView>('/api/dsh-weread/config')
+    return request<WereadConfigView>('/api/weixinread-flomo/config')
   }
 
   async setConfig(patch: Record<string, unknown>): Promise<WereadConfigView> {
-    return request<WereadConfigView>('/api/dsh-weread/config', {
+    return request<WereadConfigView>('/api/weixinread-flomo/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
@@ -94,15 +94,15 @@ export class WereadApi {
   }
 
   async getStatus(): Promise<WereadStatusView> {
-    return request<WereadStatusView>('/api/dsh-weread/status')
+    return request<WereadStatusView>('/api/weixinread-flomo/status')
   }
 
   async test(): Promise<{ ok: boolean; message: string }> {
-    return request<{ ok: boolean; message: string }>('/api/dsh-weread/test', { method: 'POST' })
+    return request<{ ok: boolean; message: string }>('/api/weixinread-flomo/test', { method: 'POST' })
   }
 
   async sync(): Promise<WereadSyncResult> {
-    return request<WereadSyncResult>('/api/dsh-weread/sync', {
+    return request<WereadSyncResult>('/api/weixinread-flomo/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -110,12 +110,12 @@ export class WereadApi {
   }
 
   async books(): Promise<WereadBook[]> {
-    const data = await request<{ books: WereadBook[] }>('/api/dsh-weread/books')
+    const data = await request<{ books: WereadBook[] }>('/api/weixinread-flomo/books')
     return data.books ?? []
   }
 
   async exportFlomo(bookId: string, tag: string, limit = 20): Promise<WereadFlomoResult> {
-    return request<WereadFlomoResult>('/api/dsh-weread/flomo', {
+    return request<WereadFlomoResult>('/api/weixinread-flomo/flomo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookId, tag, limit }),

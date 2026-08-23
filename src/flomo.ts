@@ -1,5 +1,5 @@
 /**
- * dsh-weread — flomo export integration.
+ * weixinread-flomo — flomo export integration.
  *
  * weread_flomo sends a book's highlights/thoughts to flomo (浮墨笔记).
  * It reuses the credentials already configured for the dsh-flomo plugin

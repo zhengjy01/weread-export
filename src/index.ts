@@ -1,14 +1,14 @@
 /**
- * dsh-weread — 微信读书 (WeChat Reading) integration for DeepSeek Harness.
+ * weixinread-flomo — 微信读书 (WeChat Reading) integration for DeepSeek Harness.
  * Host half.
  *
  * Mounts the weread tools (status / config / search / book / shelf / notes /
- * readdata / sync / flomo), the /api/dsh-weread route family the settings
+ * readdata / sync / flomo), the /api/weixinread-flomo route family the settings
  * panel talks to, and a system-prompt announcement. Data rides the official
  * WeRead Skills Agent Gateway (i.weread.qq.com/api/agent/gateway) with a
  * user-bound wrk- API key created at https://weread.qq.com/r/weread-skills.
- * The key lives in ~/.dsh/dsh-weread.json (mode 0600) and the sync snapshot
- * in ~/.dsh/dsh-weread-cache.json. Tools and routes build the API client
+ * The key lives in ~/.dsh/weixinread-flomo.json (mode 0600) and the sync snapshot
+ * in ~/.dsh/weixinread-flomo-cache.json. Tools and routes build the API client
  * lazily from the store, so a key configured later takes effect immediately.
  */
 
@@ -31,10 +31,10 @@ const SECTION_ORDER = 160
 
 /** Model-facing announcement: plugin presence, capabilities, and limits. */
 export const WEREAD_GUIDANCE =
-  '本机已安装 dsh-weread 插件（微信读书集成）：配置一次官方 Skills API Key（wrk- 开头，在 https://weread.qq.com/r/weread-skills 用微信读书账号登录后「创建 Key」获取）后，' +
+  '本机已安装 weixinread-flomo 插件（微信读书集成）：配置一次官方 Skills API Key（wrk- 开头，在 https://weread.qq.com/r/weread-skills 用微信读书账号登录后「创建 Key」获取）后，' +
   '可用 weread_shelf 查看书架、weread_notes 导出划线/想法/书签（不给 bookId 时返回笔记本概览）、weread_search 搜索书城、weread_book 查看书籍详情/进度/章节、' +
   'weread_readdata 查看阅读统计（weekly/monthly/annually/overall）、weread_sync 同步本地缓存、weread_flomo 把某本书的划线导出到 flomo（#标签可自定义）。' +
-  '凭据存 ~/.dsh/dsh-weread.json（权限 0600），同步快照存 ~/.dsh/dsh-weread-cache.json；weread_status 查看状态（不回显完整 Key）。' +
+  '凭据存 ~/.dsh/weixinread-flomo.json（权限 0600），同步快照存 ~/.dsh/weixinread-flomo-cache.json；weread_status 查看状态（不回显完整 Key）。' +
   '也可在 Web 设置页「微信读书」面板中配置 Key、测试连接、同步与快捷导出到 flomo。' +
   '用户提到「微信读书 / weread / 读书笔记 / 导出划线 / 阅读统计」时即指本插件，请据此协作。'
 
@@ -82,18 +82,18 @@ export function apply(ctx: Context, config?: Config): void {
         const disposers = buildTools(toolContext).map((tool) => ctx.tools.register(tool))
         return () => { for (const dispose of disposers) dispose() }
       },
-      'dsh-weread: tools',
+      'weixinread-flomo: tools',
     )
     disposeRoutes = ctx.effect(
       () => {
         const disposers = makeRoutes({ store }).map((route) => ctx.webServer.register(route))
         return () => { for (const dispose of disposers) dispose() }
       },
-      'dsh-weread: routes',
+      'weixinread-flomo: routes',
     )
     if (announceToAgent) {
       disposeSection = ctx.systemPrompt.section({
-        name: 'plugin:dsh-weread',
+        name: 'plugin:weixinread-flomo',
         order: SECTION_ORDER,
         text: WEREAD_GUIDANCE,
       })

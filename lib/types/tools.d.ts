@@ -1,5 +1,5 @@
 /**
- * dsh-weread — model-facing tools.
+ * weixinread-flomo — model-facing tools.
  *
  * Mounted via ctx.tools.register. Covers the WeRead surface: status,
  * config, search, book info, shelf, notes/highlights, reading stats,

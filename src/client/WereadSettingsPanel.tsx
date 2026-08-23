@@ -251,7 +251,7 @@ export function WereadSettingsPanel(): JSX.Element {
       </div>
       {message !== '' && <div style={s.msg}>{message}</div>}
       <div style={s.hint}>
-        【API Key】打开 https://weread.qq.com/r/weread-skills → 微信读书账号登录 → 「创建 Key」→ 复制（wrk- 开头）。Key 绑定你的账号身份，可读取你的读书数据，请勿泄露。存于 ~/.dsh/dsh-weread.json（权限 0600）。
+        【API Key】打开 https://weread.qq.com/r/weread-skills → 微信读书账号登录 → 「创建 Key」→ 复制（wrk- 开头）。Key 绑定你的账号身份，可读取你的读书数据，请勿泄露。存于 ~/.dsh/weixinread-flomo.json（权限 0600）。
       </div>
       <div style={s.hint}>
         【flomo 标签】flomo 没有「目录」，标签就是写进 MEMO 的 #标签（如 #读书笔记），用于分类归档。
@@ -259,7 +259,7 @@ export function WereadSettingsPanel(): JSX.Element {
         「本次导出标签」只影响当前这一次导出（选书 → 填标签 → 点导出），留空则用默认标签。
       </div>
       <div style={s.hint}>
-        【其他】同步快照存 ~/.dsh/dsh-weread-cache.json；flomo 导出复用「Flomo」面板的凭据。
+        【其他】同步快照存 ~/.dsh/weixinread-flomo-cache.json；flomo 导出复用「Flomo」面板的凭据。
         同步后可用 weread_shelf / weread_notes / weread_readdata / weread_search / weread_book 等工具。
       </div>
     </div>

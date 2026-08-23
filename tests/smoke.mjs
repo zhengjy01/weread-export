@@ -1,5 +1,5 @@
 /**
- * dsh-weread smoke tests — pure helpers, credential store, and the gateway
+ * weixinread-flomo smoke tests — pure helpers, credential store, and the gateway
  * client's error paths (fetch stubbed). Run: node tests/smoke.mjs
  */
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -94,7 +94,7 @@ check('notebookLines count mapping', () => {
 
 console.log('cache round-trip')
 check('read/write/empty', async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), 'dsh-weread-'))
+  const dir = await mkdtemp(path.join(tmpdir(), 'weixinread-flomo-'))
   process.env.DSH_WEREAD_CACHE = path.join(dir, 'cache.json')
   try {
     assert.deepEqual(await readCache(), emptyCache())
@@ -110,7 +110,7 @@ check('read/write/empty', async () => {
 
 console.log('store')
 check('patch/view/mask', async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), 'dsh-weread-'))
+  const dir = await mkdtemp(path.join(tmpdir(), 'weixinread-flomo-'))
   process.env.DSH_WEREAD_CONFIG = path.join(dir, 'config.json')
   try {
     const store = new WereadStore()
