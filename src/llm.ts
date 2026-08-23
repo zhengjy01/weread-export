@@ -1,5 +1,5 @@
 /**
- * weixinread-flomo — LLM prompt processing.
+ * weread-export — LLM prompt processing.
  *
  * A minimal OpenAI-compatible chat-completions client (DeepSeek-style). The
  * base URL, API key, and model are configured in the settings panel (the AI

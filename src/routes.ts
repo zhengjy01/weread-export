@@ -1,7 +1,7 @@
 /**
- * weixinread-flomo — loopback HTTP routes for the web settings panel.
+ * weread-export — loopback HTTP routes for the web settings panel.
  *
- * Route family: /api/weixinread-flomo/*. All routes are loopback-only
+ * Route family: /api/weread-export/*. All routes are loopback-only
  * (127.0.0.1/localhost, same-origin) — the settings panel is the only
  * consumer.
  */
@@ -15,13 +15,13 @@ import { runExport, type ExportRequest, type ToolContext } from './tools.ts'
 
 /** Route paths. */
 export const WEREAD_API = {
-  config: '/api/weixinread-flomo/config',
-  status: '/api/weixinread-flomo/status',
-  test: '/api/weixinread-flomo/test',
-  sync: '/api/weixinread-flomo/sync',
-  export: '/api/weixinread-flomo/export',
-  flomo: '/api/weixinread-flomo/flomo',
-  books: '/api/weixinread-flomo/books',
+  config: '/api/weread-export/config',
+  status: '/api/weread-export/status',
+  test: '/api/weread-export/test',
+  sync: '/api/weread-export/sync',
+  export: '/api/weread-export/export',
+  flomo: '/api/weread-export/flomo',
+  books: '/api/weread-export/books',
 } as const
 
 /** Cap on JSON request bodies. */
@@ -87,7 +87,7 @@ async function apiFor(store: WereadStore): Promise<WereadApi> {
 }
 
 /**
- * Build every /api/weixinread-flomo route (exact paths).
+ * Build every /api/weread-export route (exact paths).
  * @param deps - store (the API client is built lazily per request).
  * @returns the route list.
  */

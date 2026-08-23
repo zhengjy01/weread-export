@@ -1,9 +1,9 @@
 /**
- * weixinread-flomo — credential/cache store.
+ * weread-export — credential/cache store.
  *
- * Persists the WeRead Skills API key (wrk-...) to ~/.dsh/weixinread-flomo.json
+ * Persists the WeRead Skills API key (wrk-...) to ~/.dsh/weread-export.json
  * (mode 0600) and the latest sync snapshot (bookshelf + notebook overview)
- * to ~/.dsh/weixinread-flomo-cache.json. The config file holds the API key plus
+ * to ~/.dsh/weread-export-cache.json. The config file holds the API key plus
  * the default flomo tag used by weread_flomo. Reads are lazy and cached;
  * the public view() never exposes secrets. Config paths can be overridden
  * with DSH_WEREAD_CONFIG / DSH_WEREAD_CACHE (used by tests).
@@ -69,7 +69,7 @@ export declare function mask(value: string): string;
 /** Default export prompt template. */
 export declare const DEFAULT_EXPORT_PROMPT: string;
 /**
- * Small credential store backed by ~/.dsh/weixinread-flomo.json.
+ * Small credential store backed by ~/.dsh/weread-export.json.
  * Reads are lazy and cached; writes use mode 0600 so the API key never
  * leaks to other local users.
  */

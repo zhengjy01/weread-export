@@ -1,9 +1,9 @@
 /**
- * weixinread-flomo — credential/cache store.
+ * weread-export — credential/cache store.
  *
- * Persists the WeRead Skills API key (wrk-...) to ~/.dsh/weixinread-flomo.json
+ * Persists the WeRead Skills API key (wrk-...) to ~/.dsh/weread-export.json
  * (mode 0600) and the latest sync snapshot (bookshelf + notebook overview)
- * to ~/.dsh/weixinread-flomo-cache.json. The config file holds the API key plus
+ * to ~/.dsh/weread-export-cache.json. The config file holds the API key plus
  * the default flomo tag used by weread_flomo. Reads are lazy and cached;
  * the public view() never exposes secrets. Config paths can be overridden
  * with DSH_WEREAD_CONFIG / DSH_WEREAD_CACHE (used by tests).
@@ -14,10 +14,10 @@ import { homedir } from 'node:os'
 import path from 'node:path'
 
 /** Default machine-wide config location (mode 0600). */
-export const DEFAULT_CONFIG_FILE = path.join(homedir(), '.dsh', 'weixinread-flomo.json')
+export const DEFAULT_CONFIG_FILE = path.join(homedir(), '.dsh', 'weread-export.json')
 
 /** Default sync cache location (mode 0600). */
-export const DEFAULT_CACHE_FILE = path.join(homedir(), '.dsh', 'weixinread-flomo-cache.json')
+export const DEFAULT_CACHE_FILE = path.join(homedir(), '.dsh', 'weread-export-cache.json')
 
 /** Test override for the config location. */
 export function configPath(): string {
@@ -143,7 +143,7 @@ function parse(raw: unknown): WereadCredentials {
 }
 
 /**
- * Small credential store backed by ~/.dsh/weixinread-flomo.json.
+ * Small credential store backed by ~/.dsh/weread-export.json.
  * Reads are lazy and cached; writes use mode 0600 so the API key never
  * leaks to other local users.
  */

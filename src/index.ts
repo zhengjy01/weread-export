@@ -1,14 +1,14 @@
 /**
- * weixinread-flomo — 微信读书 (WeChat Reading) integration for DeepSeek Harness.
+ * weread-export — 微信读书 (WeChat Reading) integration for DeepSeek Harness.
  * Host half.
  *
  * Mounts the weread tools (status / config / search / book / shelf / notes /
- * readdata / sync / flomo), the /api/weixinread-flomo route family the settings
+ * readdata / sync / flomo), the /api/weread-export route family the settings
  * panel talks to, and a system-prompt announcement. Data rides the official
  * WeRead Skills Agent Gateway (i.weread.qq.com/api/agent/gateway) with a
  * user-bound wrk- API key created at https://weread.qq.com/r/weread-skills.
- * The key lives in ~/.dsh/weixinread-flomo.json (mode 0600) and the sync snapshot
- * in ~/.dsh/weixinread-flomo-cache.json. Tools and routes build the API client
+ * The key lives in ~/.dsh/weread-export.json (mode 0600) and the sync snapshot
+ * in ~/.dsh/weread-export-cache.json. Tools and routes build the API client
  * lazily from the store, so a key configured later takes effect immediately.
  */
 
@@ -31,12 +31,12 @@ const SECTION_ORDER = 160
 
 /** Model-facing announcement: plugin presence, capabilities, and limits. */
 export const WEREAD_GUIDANCE =
-  '本机已安装 weixinread-flomo 插件（微信读书集成）：配置一次官方 Skills API Key（wrk- 开头，在 https://weread.qq.com/r/weread-skills 用微信读书账号登录后「创建 Key」获取）后，' +
+  '本机已安装 weread-export 插件（微信读书集成）：配置一次官方 Skills API Key（wrk- 开头，在 https://weread.qq.com/r/weread-skills 用微信读书账号登录后「创建 Key」获取）后，' +
   '可用 weread_shelf 查看书架、weread_notes 导出划线/想法/书签（不给 bookId 时返回笔记本概览）、weread_search 搜索书城、weread_book 查看书籍详情/进度/章节、' +
   'weread_readdata 查看阅读统计（weekly/monthly/annually/overall）、weread_sync 同步本地缓存。' +
   '导出：weread_export 支持三个目标——flomo（默认，超长自动拆多条 MEMO）、local（本地 Markdown 文件，需 localDir）、notion（本插件独立配置 Token 与目标页）；weread_flomo 是 flomo 快捷方式。' +
   '可按配置 exportLimit 控制条数（0=全部），并可用 usePrompt/exportPrompt 让 LLM 按自定义 prompt 整理后再导出（AI 配置在设置面板，OpenAI 兼容，可自定义 Base URL/Key/模型）。' +
-  '凭据存 ~/.dsh/weixinread-flomo.json（权限 0600），同步快照存 ~/.dsh/weixinread-flomo-cache.json；weread_status 查看状态与导出配置（不回显完整 Key）。' +
+  '凭据存 ~/.dsh/weread-export.json（权限 0600），同步快照存 ~/.dsh/weread-export-cache.json；weread_status 查看状态与导出配置（不回显完整 Key）。' +
   '也可在 Web 设置页「微信读书」面板中配置 Key、导出目标（flomo/本地/Notion）、导出条数、prompt 与 AI 配置、测试连接、同步与快捷导出。' +
   '用户提到「微信读书 / weread / 读书笔记 / 导出划线 / 阅读统计」时即指本插件，请据此协作。'
 
@@ -84,18 +84,18 @@ export function apply(ctx: Context, config?: Config): void {
         const disposers = buildTools(toolContext).map((tool) => ctx.tools.register(tool))
         return () => { for (const dispose of disposers) dispose() }
       },
-      'weixinread-flomo: tools',
+      'weread-export: tools',
     )
     disposeRoutes = ctx.effect(
       () => {
         const disposers = makeRoutes({ store }).map((route) => ctx.webServer.register(route))
         return () => { for (const dispose of disposers) dispose() }
       },
-      'weixinread-flomo: routes',
+      'weread-export: routes',
     )
     if (announceToAgent) {
       disposeSection = ctx.systemPrompt.section({
-        name: 'plugin:weixinread-flomo',
+        name: 'plugin:weread-export',
         order: SECTION_ORDER,
         text: WEREAD_GUIDANCE,
       })

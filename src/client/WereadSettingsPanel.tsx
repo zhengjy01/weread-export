@@ -405,7 +405,7 @@ export function WereadSettingsPanel(): JSX.Element {
 
       {message !== '' && <div style={s.msg}>{message}</div>}
       <div style={s.hint}>
-        【API Key】打开 https://weread.qq.com/r/weread-skills → 微信读书账号登录 → 「创建 Key」→ 复制（wrk- 开头）。Key 绑定你的账号身份，请勿泄露。存于 ~/.dsh/weixinread-flomo.json（权限 0600）。
+        【API Key】打开 https://weread.qq.com/r/weread-skills → 微信读书账号登录 → 「创建 Key」→ 复制（wrk- 开头）。Key 绑定你的账号身份，请勿泄露。存于 ~/.dsh/weread-export.json（权限 0600）。
       </div>
       <div style={s.hint}>
         【导出目标】flomo = 发到浮墨（复用「Flomo」面板凭据，超长自动拆多条 MEMO）；本地 = 导出 Markdown 文件到指定目录（每次导出需填路径）；Notion = 用本插件自己的 Integration Token 在目标父页面下创建子页面写入（目标页需分享给该 Integration）。

@@ -1,5 +1,5 @@
 /**
- * weixinread-flomo — model-facing tools.
+ * weread-export — model-facing tools.
  *
  * Mounted via ctx.tools.register. Covers the WeRead surface: status,
  * config, search, book info, shelf, notes/highlights, reading stats,
@@ -67,7 +67,7 @@ function formatCount(n: number): string {
 export function wereadStatusTool(ctx: ToolContext) {
   return defineTool({
     name: 'weread_status',
-    description: '查看 weixinread-flomo 插件状态：微信读书 API Key 配置、默认 flomo 标签、导出条数（0=全部）、默认导出目标（flomo/本地/Notion）、Notion 与 LLM（prompt 处理）配置状态、最近同步、缓存规模。不会泄露任何 Key。',
+    description: '查看 weread-export 插件状态：微信读书 API Key 配置、默认 flomo 标签、导出条数（0=全部）、默认导出目标（flomo/本地/Notion）、Notion 与 LLM（prompt 处理）配置状态、最近同步、缓存规模。不会泄露任何 Key。',
     parameters: {},
     output: {
       schema: {
@@ -142,7 +142,7 @@ export function wereadStatusTool(ctx: ToolContext) {
 export function wereadConfigTool(ctx: ToolContext) {
   return defineTool({
     name: 'weread_config',
-    description: '配置或清除 weixinread-flomo 的凭据与导出偏好：apiKey 为微信读书 Skills API Key（wrk- 开头，https://weread.qq.com/r/weread-skills 创建）；defaultFlomoTag 为 flomo 导出默认标签；exportLimit 为导出条数（0=全部）；exportDest 为默认导出目标（flomo/local/notion）；localExportDir 为本地导出目录；notionToken/notionTargetPageId 为 Notion 导出凭据与目标页；usePrompt/exportPrompt 为 LLM prompt 处理开关与模板；llmBaseUrl/llmApiKey/llmModel 为 LLM 配置（OpenAI 兼容）。test: true 保存后测试微信读书连接。reset: true 清除全部。凭据存 ~/.dsh/weixinread-flomo.json（0600）。',
+    description: '配置或清除 weread-export 的凭据与导出偏好：apiKey 为微信读书 Skills API Key（wrk- 开头，https://weread.qq.com/r/weread-skills 创建）；defaultFlomoTag 为 flomo 导出默认标签；exportLimit 为导出条数（0=全部）；exportDest 为默认导出目标（flomo/local/notion）；localExportDir 为本地导出目录；notionToken/notionTargetPageId 为 Notion 导出凭据与目标页；usePrompt/exportPrompt 为 LLM prompt 处理开关与模板；llmBaseUrl/llmApiKey/llmModel 为 LLM 配置（OpenAI 兼容）。test: true 保存后测试微信读书连接。reset: true 清除全部。凭据存 ~/.dsh/weread-export.json（0600）。',
     parameters: {
       apiKey: { type: 'string', description: '微信读书 Skills API Key（wrk- 开头）' },
       defaultFlomoTag: { type: 'string', description: 'flomo 导出默认标签（不带 #，如 读书笔记）' },
@@ -618,7 +618,7 @@ function formatAuthors(list: unknown): string {
 export function wereadSyncTool(ctx: ToolContext) {
   return defineTool({
     name: 'weread_sync',
-    description: '同步微信读书到本地缓存（~/.dsh/weixinread-flomo-cache.json）：拉取书架与笔记本概览（有笔记的书），更新最近同步时间。之后 weread_shelf useCache / 设置面板可读缓存。',
+    description: '同步微信读书到本地缓存（~/.dsh/weread-export-cache.json）：拉取书架与笔记本概览（有笔记的书），更新最近同步时间。之后 weread_shelf useCache / 设置面板可读缓存。',
     parameters: {},
     output: {
       schema: {

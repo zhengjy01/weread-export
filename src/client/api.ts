@@ -1,5 +1,5 @@
 /**
- * Browser-side API client for the /api/weixinread-flomo route family. The only
+ * Browser-side API client for the /api/weread-export route family. The only
  * data access path the settings panel uses — plain fetch, same origin.
  */
 
@@ -93,11 +93,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** The weread panel API. */
 export class WereadApi {
   async getConfig(): Promise<WereadConfigView> {
-    return request<WereadConfigView>('/api/weixinread-flomo/config')
+    return request<WereadConfigView>('/api/weread-export/config')
   }
 
   async setConfig(patch: Record<string, unknown>): Promise<WereadConfigView> {
-    return request<WereadConfigView>('/api/weixinread-flomo/config', {
+    return request<WereadConfigView>('/api/weread-export/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
@@ -105,15 +105,15 @@ export class WereadApi {
   }
 
   async getStatus(): Promise<WereadStatusView> {
-    return request<WereadStatusView>('/api/weixinread-flomo/status')
+    return request<WereadStatusView>('/api/weread-export/status')
   }
 
   async test(): Promise<{ ok: boolean; message: string }> {
-    return request<{ ok: boolean; message: string }>('/api/weixinread-flomo/test', { method: 'POST' })
+    return request<{ ok: boolean; message: string }>('/api/weread-export/test', { method: 'POST' })
   }
 
   async sync(): Promise<WereadSyncResult> {
-    return request<WereadSyncResult>('/api/weixinread-flomo/sync', {
+    return request<WereadSyncResult>('/api/weread-export/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -121,12 +121,12 @@ export class WereadApi {
   }
 
   async books(): Promise<WereadBook[]> {
-    const data = await request<{ books: WereadBook[] }>('/api/weixinread-flomo/books')
+    const data = await request<{ books: WereadBook[] }>('/api/weread-export/books')
     return data.books ?? []
   }
 
   async exportFlomo(bookId: string, tag: string, limit = 20): Promise<WereadFlomoResult> {
-    return request<WereadFlomoResult>('/api/weixinread-flomo/flomo', {
+    return request<WereadFlomoResult>('/api/weread-export/flomo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookId, tag, limit }),
@@ -135,7 +135,7 @@ export class WereadApi {
 
   /** Multi-target export: flomo / local / notion with optional prompt. */
   async exportData(body: Record<string, unknown>): Promise<WereadFlomoResult> {
-    return request<WereadFlomoResult>('/api/weixinread-flomo/export', {
+    return request<WereadFlomoResult>('/api/weread-export/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

@@ -1,4 +1,4 @@
-# weixinread-flomo
+# weread-export
 
 微信读书（WeChat Reading）集成插件 for DeepSeek Harness：使用官方 WeRead Skills Agent Gateway（`i.weread.qq.com/api/agent/gateway`）读取书架、划线/想法/书签、书籍信息、阅读统计，并把划线一键导出到 flomo（标签可自定义）。包含 Agent 工具与 Web 设置面板。
 
@@ -8,9 +8,9 @@
 
 ```bash
 # 本地开发
-dsh plugin --profile web add link:/path/to/weixinread-flomo
+dsh plugin --profile web add link:/path/to/weread-export
 # 或发布后从 GitHub / npm 安装
-dsh plugin --profile web add github:zhengjy01/weixinread-flomo
+dsh plugin --profile web add github:zhengjy01/weread-export
 ```
 
 重启 DSH GUI 后生效。
@@ -22,7 +22,7 @@ dsh plugin --profile web add github:zhengjy01/weixinread-flomo
 3. 把 Key 填到 Web 设置页「微信读书」面板，或在对话中调用 `weread_config`。
 4. （可选）在「Flomo」面板配置 flomo API URL / API Key，即可用 `weread_flomo` 导出划线。
 
-Key 存于 `~/.dsh/weixinread-flomo.json`（权限 0600），同步快照存于 `~/.dsh/weixinread-flomo-cache.json`。
+Key 存于 `~/.dsh/weread-export.json`（权限 0600），同步快照存于 `~/.dsh/weread-export-cache.json`。
 
 ## 工具
 

@@ -1,14 +1,14 @@
 /**
- * weixinread-flomo — 微信读书 (WeChat Reading) integration for DeepSeek Harness.
+ * weread-export — 微信读书 (WeChat Reading) integration for DeepSeek Harness.
  * Host half.
  *
  * Mounts the weread tools (status / config / search / book / shelf / notes /
- * readdata / sync / flomo), the /api/weixinread-flomo route family the settings
+ * readdata / sync / flomo), the /api/weread-export route family the settings
  * panel talks to, and a system-prompt announcement. Data rides the official
  * WeRead Skills Agent Gateway (i.weread.qq.com/api/agent/gateway) with a
  * user-bound wrk- API key created at https://weread.qq.com/r/weread-skills.
- * The key lives in ~/.dsh/weixinread-flomo.json (mode 0600) and the sync snapshot
- * in ~/.dsh/weixinread-flomo-cache.json. Tools and routes build the API client
+ * The key lives in ~/.dsh/weread-export.json (mode 0600) and the sync snapshot
+ * in ~/.dsh/weread-export-cache.json. Tools and routes build the API client
  * lazily from the store, so a key configured later takes effect immediately.
  */
 import type { Context } from '@deepseek-ai/cordis';

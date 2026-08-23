@@ -1,5 +1,5 @@
 /**
- * weixinread-flomo — unified export targets.
+ * weread-export — unified export targets.
  *
  * One pipeline, three destinations: flomo, local file, Notion page.
  * Highlights (+ thoughts) are rendered to markdown, optionally processed by

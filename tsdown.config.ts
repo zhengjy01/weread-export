@@ -1,5 +1,5 @@
 /**
- * Standalone build config for the weixinread-flomo plugin.
+ * Standalone build config for the weread-export plugin.
  *
  * Uses the bundled shared client-bundle preset (shared/tsdown.client.ts,
  * vendored from the dsh-web-ui family repo): node-half lib/ plus the
@@ -8,7 +8,7 @@
  */
 import { clientBundle } from './shared/tsdown.client.ts'
 
-export default clientBundle('weixinread-flomo', ['src/index.ts'], {
+export default clientBundle('weread-export', ['src/index.ts'], {
   libExternal: [
     '@deepseek-ai/dsh-host-webserver',
     '@deepseek-ai/dsh-system-prompt',
