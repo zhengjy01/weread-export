@@ -504,7 +504,7 @@ export function WereadSettingsPanel(): JSX.Element {
         <div style={s.row}>
           <input style={s.input} type="password" placeholder="或 flomo API Key（新版，与 URL 二选一）" value={flomoApiKey} onChange={(e) => setFlomoApiKey(e.target.value)} />
           <button style={s.button} onClick={() => void saveFlomoConfig()} disabled={busy}>保存 flomo</button>
-          <button style={s.button} onClick={() => void testFlomoConfig()} disabled={busy || !view?.flomoConfigured}>测试 flomo</button>
+          <button style={s.button} onClick={() => void testFlomoConfig()} disabled={busy}>测试 flomo</button>
           <button style={s.button} onClick={() => void clearFlomoConfig()} disabled={busy}>清除</button>
         </div>
       </div>
@@ -527,7 +527,7 @@ export function WereadSettingsPanel(): JSX.Element {
         <div style={s.row}>
           <div style={s.flex} />
           <button style={s.button} onClick={() => void saveNotionConfig()} disabled={busy}>保存 Notion</button>
-          <button style={s.button} onClick={() => void testNotionConfig()} disabled={busy || !view?.notionConfigured}>测试 Notion</button>
+          <button style={s.button} onClick={() => void testNotionConfig()} disabled={busy}>测试 Notion</button>
         </div>
       </div>
 
