@@ -1,6 +1,6 @@
 {
   "name": "weread-export",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "微信读书 (WeChat Reading) integration for DeepSeek Harness: connect the official WeRead Skills Agent Gateway with a wrk- API key, then browse your bookshelf, export highlights & thoughts, query reading stats, and send highlights to flomo — agent tools plus a web settings panel",
   "type": "module",
   "main": "lib/index.js",

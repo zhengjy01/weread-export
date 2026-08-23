@@ -45,8 +45,8 @@ export interface WereadCredentials {
     /** ISO timestamp of the last successful sync. */
     lastSyncAt: string;
 }
-/** Export destination. */
-export type ExportDest = 'flomo' | 'local' | 'notion';
+/** Export destination; 'all' = every configured target at once. */
+export type ExportDest = 'flomo' | 'local' | 'notion' | 'all';
 /** Public, secret-free status view. */
 export interface WereadConfigView {
     configured: boolean;

@@ -52,7 +52,8 @@ export interface ExportResult {
 }
 /**
  * Core export pipeline: pull highlights (+ thoughts), optionally process
- * through the LLM prompt, then deliver to flomo / local file / Notion.
+ * through the LLM prompt once, then deliver to one or more destinations
+ * ('all' = every configured target: flomo + local + notion).
  */
 export declare function runExport(ctx: ToolContext, req: ExportRequest): Promise<ExportResult>;
 /** Multi-target export tool: flomo / local file / Notion + optional prompt. */

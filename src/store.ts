@@ -61,8 +61,8 @@ export interface WereadCredentials {
   lastSyncAt: string
 }
 
-/** Export destination. */
-export type ExportDest = 'flomo' | 'local' | 'notion'
+/** Export destination; 'all' = every configured target at once. */
+export type ExportDest = 'flomo' | 'local' | 'notion' | 'all'
 
 /** Public, secret-free status view. */
 export interface WereadConfigView {
@@ -122,7 +122,7 @@ function parse(raw: unknown): WereadCredentials {
   const limit = (value: unknown): number =>
     typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 20
   const dest = (value: unknown): ExportDest =>
-    value === 'local' || value === 'notion' ? value : (value === 'flomo' ? 'flomo' : 'flomo')
+    value === 'local' || value === 'notion' || value === 'all' ? value : (value === 'flomo' ? 'flomo' : 'flomo')
   const bool = (value: unknown): boolean => value === true
   const base = empty()
   return {
@@ -206,7 +206,7 @@ export class WereadStore {
     if (args !== undefined && typeof args.exportLimit === 'number' && Number.isFinite(args.exportLimit)) {
       next.exportLimit = Math.max(0, Math.floor(args.exportLimit))
     }
-    if (args !== undefined && (args.exportDest === 'flomo' || args.exportDest === 'local' || args.exportDest === 'notion')) {
+    if (args !== undefined && (args.exportDest === 'flomo' || args.exportDest === 'local' || args.exportDest === 'notion' || args.exportDest === 'all')) {
       next.exportDest = args.exportDest
     }
     if (args !== undefined && typeof args.localExportDir === 'string') next.localExportDir = args.localExportDir.trim()

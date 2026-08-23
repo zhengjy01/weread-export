@@ -48,6 +48,14 @@ const s = {
     paddingBottom: '6px',
     borderBottom: '1px solid rgba(128,128,128,0.18)',
   } as const,
+  subTitle: {
+    fontWeight: 600,
+    fontSize: '12px',
+    opacity: 0.9,
+    margin: '4px 0 0',
+    paddingTop: '8px',
+    borderTop: '1px dashed rgba(128,128,128,0.25)',
+  } as const,
   status: { fontSize: '12px', opacity: 0.85, whiteSpace: 'pre-wrap' } as const,
   statusWarn: { fontSize: '12px', opacity: 0.9, color: '#c9763a' } as const,
   row: { display: 'flex', gap: '6px', alignItems: 'center', minWidth: 0, flexWrap: 'wrap' } as const,
@@ -335,6 +343,11 @@ export function WereadSettingsPanel(): JSX.Element {
       const body: Record<string, unknown> = { bookId, dest }
       if (dest === 'local') body.localDir = localDirNow.trim()
       if (dest === 'flomo' && flomoTagNow.trim() !== '') body.tag = flomoTagNow.trim()
+      if (dest === 'all') {
+        // Use per-run values when provided; otherwise fall back to config.
+        if (localDirNow.trim() !== '') body.localDir = localDirNow.trim()
+        if (flomoTagNow.trim() !== '') body.tag = flomoTagNow.trim()
+      }
       if (usePromptNow !== null) body.usePrompt = usePromptNow
       const result: WereadFlomoResult = await api.exportData(body)
       setMessage(result.ok ? result.message : '导出失败: ' + result.message)
@@ -382,18 +395,63 @@ export function WereadSettingsPanel(): JSX.Element {
         </div>
         <div style={s.row}>
           <span style={s.label}>默认目标</span>
-          <select style={{ ...s.select, flex: 0, minWidth: '110px' }} value={exportDest} onChange={(e) => setExportDest(e.target.value)}>
+          <select style={{ ...s.select, flex: 0, minWidth: '130px' }} value={exportDest} onChange={(e) => setExportDest(e.target.value)}>
             <option value="flomo">flomo</option>
             <option value="local">本地文件</option>
             <option value="notion">Notion</option>
+            <option value="all">全选（flomo+本地+Notion）</option>
           </select>
-          {exportDest === 'local' && (
+          {(exportDest === 'local' || exportDest === 'all') && (
             <>
               <input style={s.input} placeholder="本地导出目录（绝对路径，可留空导出时填）" value={localExportDir} onChange={(e) => setLocalExportDir(e.target.value)} />
               <button style={s.button} onClick={() => void pickFolder((p) => setLocalExportDir(p))} disabled={busy}>选择文件夹…</button>
             </>
           )}
         </div>
+
+        <div style={s.subTitle}>快捷导出</div>
+        <div style={s.row}>
+          <span style={s.label}>选择书籍</span>
+          <select style={s.select} value={bookId} onChange={(e) => setBookId(e.target.value)} disabled={books.length === 0}>
+            {books.length === 0 ? <option value="">（缓存无书籍，先同步）</option> : books.map((b) => (
+              <option key={b.bookId} value={b.bookId}>《{b.title}》{b.author !== '' ? ' · ' + b.author : ''}</option>
+            ))}
+          </select>
+          <button style={s.button} onClick={() => void runSync()} disabled={busy || !view?.configured}>同步书架/笔记</button>
+        </div>
+        <div style={s.row}>
+          <span style={s.label}>本次目标</span>
+          <select style={{ ...s.select, flex: 0, minWidth: '130px' }} value={destNow} onChange={(e) => setDestNow(e.target.value)}>
+            <option value="flomo">flomo</option>
+            <option value="local">本地文件</option>
+            <option value="notion">Notion</option>
+            <option value="all">全选（flomo+本地+Notion）</option>
+          </select>
+          {(destNow === 'local' || destNow === 'all') && (
+            <>
+              <input style={s.input} placeholder={destNow === 'local' ? '导出路径（必填）' : '本地路径（留空用默认）'} value={localDirNow} onChange={(e) => setLocalDirNow(e.target.value)} />
+              <button style={s.button} onClick={() => void pickFolder((p) => setLocalDirNow(p))} disabled={busy}>选择文件夹…</button>
+            </>
+          )}
+          {(destNow === 'flomo' || destNow === 'all') && (
+            <input style={{ ...s.input, width: '150px' }} placeholder={destNow === 'all' ? 'flomo 标签（留空用默认）' : '本次标签（#）'} value={flomoTagNow} onChange={(e) => setFlomoTagNow(e.target.value)} />
+          )}
+        </div>
+        <div style={s.row}>
+          <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={usePromptNow === null ? (view?.usePrompt ?? false) : usePromptNow}
+              onChange={(e) => setUsePromptNow(e.target.checked)}
+            />
+            本次用 prompt 处理（默认跟随配置）
+          </label>
+          <div style={s.flex} />
+          <button style={s.button} onClick={() => void runExportNow()} disabled={busy || !view?.configured}>
+            导出到 {destNow === 'all' ? '全部' : (destNow === 'local' ? '本地' : (destNow === 'notion' ? 'Notion' : 'flomo'))}
+          </button>
+        </div>
+
         <div style={s.row}>
           <div style={s.flex} />
           <button style={s.button} onClick={() => void saveConfig()} disabled={busy}>保存配置</button>
@@ -449,50 +507,6 @@ export function WereadSettingsPanel(): JSX.Element {
             value={exportPrompt}
             onChange={(e) => setExportPrompt(e.target.value)}
           />
-        </div>
-      </div>
-
-      <div style={s.group}>
-        <div style={s.groupTitle}>⑤ 快捷导出</div>
-        <div style={s.row}>
-          <span style={s.label}>选择书籍</span>
-          <select style={s.select} value={bookId} onChange={(e) => setBookId(e.target.value)} disabled={books.length === 0}>
-            {books.length === 0 ? <option value="">（缓存无书籍，先同步）</option> : books.map((b) => (
-              <option key={b.bookId} value={b.bookId}>《{b.title}》{b.author !== '' ? ' · ' + b.author : ''}</option>
-            ))}
-          </select>
-          <button style={s.button} onClick={() => void runSync()} disabled={busy || !view?.configured}>同步书架/笔记</button>
-        </div>
-        <div style={s.row}>
-          <span style={s.label}>本次目标</span>
-          <select style={{ ...s.select, flex: 0, minWidth: '110px' }} value={destNow} onChange={(e) => setDestNow(e.target.value)}>
-            <option value="flomo">flomo</option>
-            <option value="local">本地文件</option>
-            <option value="notion">Notion</option>
-          </select>
-          {destNow === 'local' && (
-            <>
-              <input style={s.input} placeholder="导出路径（必填）" value={localDirNow} onChange={(e) => setLocalDirNow(e.target.value)} />
-              <button style={s.button} onClick={() => void pickFolder((p) => setLocalDirNow(p))} disabled={busy}>选择文件夹…</button>
-            </>
-          )}
-          {destNow === 'flomo' && (
-            <input style={{ ...s.input, width: '150px' }} placeholder="本次标签（#）" value={flomoTagNow} onChange={(e) => setFlomoTagNow(e.target.value)} />
-          )}
-        </div>
-        <div style={s.row}>
-          <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={usePromptNow === null ? (view?.usePrompt ?? false) : usePromptNow}
-              onChange={(e) => setUsePromptNow(e.target.checked)}
-            />
-            本次用 prompt 处理（默认跟随配置）
-          </label>
-          <div style={s.flex} />
-          <button style={s.button} onClick={() => void runExportNow()} disabled={busy || !view?.configured}>
-            导出到 {destNow === 'local' ? '本地' : (destNow === 'notion' ? 'Notion' : 'flomo')}
-          </button>
         </div>
       </div>
 

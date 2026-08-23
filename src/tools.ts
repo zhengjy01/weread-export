@@ -19,7 +19,7 @@ import {
 } from './cache.ts'
 import { buildExportMarkdown, processWithPrompt, exportToLocal, exportToNotion, exportToFlomo } from './export.ts'
 import { llmConfigured } from './llm.ts'
-import type { ExportDest } from './store.ts'
+import type { ExportDest, WereadCredentials } from './store.ts'
 
 /** One text content block (the only render shape these tools emit). */
 function text(value: string): ContentBlock[] {
@@ -670,13 +670,16 @@ export interface ExportResult {
 
 /**
  * Core export pipeline: pull highlights (+ thoughts), optionally process
- * through the LLM prompt, then deliver to flomo / local file / Notion.
+ * through the LLM prompt once, then deliver to one or more destinations
+ * ('all' = every configured target: flomo + local + notion).
  */
 export async function runExport(ctx: ToolContext, req: ExportRequest): Promise<ExportResult> {
   const bookId = (req.bookId ?? '').trim()
   if (bookId === '') return { ok: false, message: '请提供 bookId。', dest: 'flomo' }
   const creds = await ctx.store.load()
-  const dest: ExportDest = req.dest === 'local' || req.dest === 'notion' ? req.dest : creds.exportDest
+  const requested: ExportDest = req.dest === 'flomo' || req.dest === 'local' || req.dest === 'notion' || req.dest === 'all'
+    ? req.dest
+    : creds.exportDest
 
   try {
     const api = await requireApi(ctx)
@@ -691,7 +694,7 @@ export async function runExport(ctx: ToolContext, req: ExportRequest): Promise<E
     const author = info?.author ?? ''
 
     if (highlights.length === 0 && thoughts.length === 0) {
-      return { ok: false, message: '《' + title + '》暂无划线与想法，未导出。', dest, bookId }
+      return { ok: false, message: '《' + title + '》暂无划线与想法，未导出。', dest: requested, bookId }
     }
 
     // limit applies to highlights (0 = all).
@@ -699,16 +702,17 @@ export async function runExport(ctx: ToolContext, req: ExportRequest): Promise<E
       ? Math.max(0, Math.floor(req.limit))
       : creds.exportLimit
     const sliceHighlights = limit === 0 || limit >= highlights.length ? highlights : highlights.slice(0, limit)
+    const scope = sliceHighlights.length === highlights.length ? '全部 ' + highlights.length + ' 条' : sliceHighlights.length + ' 条（共 ' + highlights.length + ' 条）'
 
     // Build the base markdown.
     let content = buildExportMarkdown(title, author, sliceHighlights, thoughts, bookmarks.chapters)
 
-    // Optional LLM prompt processing.
+    // Optional LLM prompt processing (once — reused for every destination).
     const usePrompt = typeof req.usePrompt === 'boolean' ? req.usePrompt : creds.usePrompt
     if (usePrompt) {
       const llm = { baseUrl: creds.llmBaseUrl, apiKey: creds.llmApiKey, model: creds.llmModel }
       if (!llmConfigured(llm)) {
-        return { ok: false, message: '已启用 prompt 处理但 LLM 未配置：请在设置面板「AI」区填写 API Key / Base URL / 模型，或关闭 prompt 开关。', dest, bookId }
+        return { ok: false, message: '已启用 prompt 处理但 LLM 未配置：请在设置面板「AI」区填写 API Key / Base URL / 模型，或关闭 prompt 开关。', dest: requested, bookId }
       }
       const template = (req.prompt ?? '').trim() !== '' ? (req.prompt as string) : creds.exportPrompt
       const highlightsText = sliceHighlights.map((h) => '- “' + (h.markText ?? '').trim() + '”').join('\n')
@@ -716,51 +720,97 @@ export async function runExport(ctx: ToolContext, req: ExportRequest): Promise<E
       try {
         content = await processWithPrompt(llm, template, { title, author, highlights: highlightsText, thoughts: thoughtsText })
       } catch (error) {
-        return { ok: false, message: 'LLM 处理失败：' + apiError(error), dest, bookId }
+        return { ok: false, message: 'LLM 处理失败：' + apiError(error), dest: requested, bookId }
       }
     }
 
-    // Deliver to the selected destination.
-    if (dest === 'local') {
-      const dir = (req.localDir ?? '').trim() !== '' ? (req.localDir as string) : creds.localExportDir
-      if (dir === '') {
-        return { ok: false, message: '本地导出需要提供目录：请填 localDir 参数（或面板导出时填写导出路径）。', dest, bookId }
+    // Resolve destination list.
+    const dests: ExportDest[] = requested === 'all'
+      ? ['flomo', 'local', 'notion']
+      : [requested]
+
+    // Deliver to each destination independently; collect per-target results.
+    const lines: string[] = []
+    let allOk = true
+    let sent = 0
+    let memoCount = 0
+    let file: string | undefined
+    let pageId: string | undefined
+    for (const dest of dests as Exclude<ExportDest, 'all'>[]) {
+      let r: ExportResult
+      try {
+        r = await deliverTo(creds, req, dest, title, content, sliceHighlights.length, scope, bookId)
+      } catch (error) {
+        r = { ok: false, message: dest + ' 导出失败：' + apiError(error), dest, bookId }
       }
-      const file = await exportToLocal(dir, title, content)
-      const scope = sliceHighlights.length === highlights.length ? '全部 ' + highlights.length + ' 条' : sliceHighlights.length + ' 条（共 ' + highlights.length + ' 条）'
-      return { ok: true, message: '已导出 ' + scope + ' 划线到本地：' + file, dest, sent: sliceHighlights.length, file, bookId }
+      lines.push(r.message)
+      if (!r.ok) allOk = false
+      sent += r.sent ?? 0
+      memoCount += r.memoCount ?? 0
+      if (r.file !== undefined) file = r.file
+      if (r.pageId !== undefined) pageId = r.pageId
     }
 
-    if (dest === 'notion') {
-      if (creds.notionToken.trim() === '') {
-        return { ok: false, message: 'Notion 未配置：请在设置面板「Notion」区填写 Integration Token（notion.so/my-integrations 创建，页面需分享给该 Integration）。', dest, bookId }
-      }
-      if (creds.notionTargetPageId.trim() === '') {
-        return { ok: false, message: 'Notion 目标页面未配置：请在设置面板「Notion」区填写目标页面 URL 或 ID。', dest, bookId }
-      }
-      const pageId = await exportToNotion(creds.notionToken, creds.notionTargetPageId, title, content)
-      const scope = sliceHighlights.length === highlights.length ? '全部 ' + highlights.length + ' 条' : sliceHighlights.length + ' 条（共 ' + highlights.length + ' 条）'
-      return { ok: true, message: '已导出 ' + scope + ' 划线到 Notion 页面：https://www.notion.so/' + pageId, dest, sent: sliceHighlights.length, pageId, bookId }
-    }
-
-    // flomo
-    const flomoUrl = await resolveFlomoUrl()
-    if (flomoUrl === null) {
-      return { ok: false, message: 'flomo 未配置：请先在 Web 设置页「Flomo」面板或 flomo_config 配置 API URL / API Key（flomo 设置页 https://flomoapp.com/mine?source=incoming_webhook 获取）。', dest, bookId }
-    }
-    const tag = (req.tag ?? '').trim() || creds.defaultFlomoTag
-    const result = await exportToFlomo(flomoUrl, title, content, tag)
-    const scope = sliceHighlights.length === highlights.length ? '全部 ' + highlights.length + ' 条' : sliceHighlights.length + ' 条（共 ' + highlights.length + ' 条）'
     return {
-      ok: result.failed === 0,
-      message: (result.sent > 0 ? '已导出 ' + scope + ' 划线到 flomo（#' + tag + '）：' + result.message : result.message),
-      dest,
-      sent: sliceHighlights.length,
-      memoCount: result.memoCount,
+      ok: allOk,
+      message: lines.join('\n'),
+      dest: requested,
+      sent: sent > 0 ? sent : undefined,
+      memoCount: memoCount > 0 ? memoCount : undefined,
+      file,
+      pageId,
       bookId,
     }
   } catch (error) {
-    return { ok: false, message: '导出失败：' + apiError(error), dest, bookId }
+    return { ok: false, message: '导出失败：' + apiError(error), dest: requested, bookId }
+  }
+}
+
+/** Deliver prepared content to one destination. */
+async function deliverTo(
+  creds: WereadCredentials,
+  req: ExportRequest,
+  dest: Exclude<ExportDest, 'all'>,
+  title: string,
+  content: string,
+  exported: number,
+  scope: string,
+  bookId: string,
+): Promise<ExportResult> {
+  if (dest === 'local') {
+    const dir = (req.localDir ?? '').trim() !== '' ? (req.localDir as string) : creds.localExportDir
+    if (dir === '') {
+      return { ok: false, message: '本地导出需要提供目录：请填 localDir 参数（或面板导出时填写导出路径）。', dest, bookId }
+    }
+    const file = await exportToLocal(dir, title, content)
+    return { ok: true, message: '已导出 ' + scope + ' 划线到本地：' + file, dest, sent: exported, file, bookId }
+  }
+
+  if (dest === 'notion') {
+    if (creds.notionToken.trim() === '') {
+      return { ok: false, message: 'Notion 未配置（跳过）：请在设置面板「Notion」区填写 Integration Token（notion.so/my-integrations 创建，页面需分享给该 Integration）。', dest, bookId }
+    }
+    if (creds.notionTargetPageId.trim() === '') {
+      return { ok: false, message: 'Notion 目标页面未配置（跳过）：请在设置面板「Notion」区填写目标页面 URL 或 ID。', dest, bookId }
+    }
+    const pageId = await exportToNotion(creds.notionToken, creds.notionTargetPageId, title, content)
+    return { ok: true, message: '已导出 ' + scope + ' 划线到 Notion 页面：https://www.notion.so/' + pageId, dest, sent: exported, pageId, bookId }
+  }
+
+  // flomo
+  const flomoUrl = await resolveFlomoUrl()
+  if (flomoUrl === null) {
+    return { ok: false, message: 'flomo 未配置（跳过）：请先在 Web 设置页「Flomo」面板或本插件「flomo 导出」区配置 API URL / API Key（flomo 设置页 https://flomoapp.com/mine?source=incoming_webhook 获取）。', dest, bookId }
+  }
+  const tag = (req.tag ?? '').trim() || creds.defaultFlomoTag
+  const result = await exportToFlomo(flomoUrl, title, content, tag)
+  return {
+    ok: result.failed === 0,
+    message: (result.sent > 0 ? '已导出 ' + scope + ' 划线到 flomo（#' + tag + '）：' + result.message : result.message),
+    dest,
+    sent: result.failed === 0 ? exported : 0,
+    memoCount: result.memoCount,
+    bookId,
   }
 }
 
@@ -768,10 +818,10 @@ export async function runExport(ctx: ToolContext, req: ExportRequest): Promise<E
 export function wereadExportTool(ctx: ToolContext) {
   return defineTool({
     name: 'weread_export',
-    description: '把微信读书某本书的划线/想法导出到指定目标：dest=flomo（默认，复用「Flomo」面板凭据，超长自动拆多条 MEMO）、dest=local（导出到本地 Markdown 文件，需提供 localDir 目录，每次必填）、dest=notion（用本插件配置的 Notion Token 与目标页面创建子页面）。可按配置 exportLimit 控制条数（0=全部）。若配置 usePrompt（或传 prompt），会先按 prompt 用 LLM 整理内容再导出（AI 配置见设置面板）。tag 仅 flomo 用。',
+    description: '把微信读书某本书的划线/想法导出：dest=flomo（默认，复用「Flomo」面板凭据，超长自动拆多条 MEMO）、dest=local（导出到本地 Markdown 文件，需提供 localDir 目录）、dest=notion（用本插件配置的 Notion Token 与目标页面创建子页面）、dest=all（一次导出到全部已配置目标，未配置的目标会跳过并说明）。可按配置 exportLimit 控制条数（0=全部）。若配置 usePrompt（或传 prompt），会先按 prompt 用 LLM 整理内容一次，再分发到各目标（AI 配置见设置面板）。tag 仅 flomo 用。',
     parameters: {
       bookId: { type: 'string', required: true, description: '书籍 bookId（来自 weread_shelf / weread_search）' },
-      dest: { type: 'string', enum: ['flomo', 'local', 'notion'], description: '导出目标（默认配置 exportDest，通常是 flomo）' },
+      dest: { type: 'string', enum: ['flomo', 'local', 'notion', 'all'], description: '导出目标（默认配置 exportDest）：flomo/local/notion 单个，或 all=全部已配置目标一起导出' },
       localDir: { type: 'string', description: 'dest=local 时必填：本地导出目录（绝对路径）' },
       tag: { type: 'string', description: 'flomo 标签（不带 #，可空格分隔多个）' },
       prompt: { type: 'string', description: '临时覆盖导出 prompt（需配合 usePrompt: true 或配置开启）' },

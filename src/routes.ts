@@ -281,7 +281,7 @@ export function makeRoutes(deps: RouteContext) {
         const body = (await readJsonBody(req)) ?? {}
         const req2: ExportRequest = {
           bookId: typeof body.bookId === 'string' ? body.bookId : undefined,
-          dest: body.dest === 'local' || body.dest === 'notion' ? body.dest : undefined,
+          dest: body.dest === 'local' || body.dest === 'notion' || body.dest === 'all' ? body.dest : undefined,
           localDir: typeof body.localDir === 'string' ? body.localDir : undefined,
           tag: typeof body.tag === 'string' ? body.tag : undefined,
           prompt: typeof body.prompt === 'string' ? body.prompt : undefined,
