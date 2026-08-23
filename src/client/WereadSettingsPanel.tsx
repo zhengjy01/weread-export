@@ -283,6 +283,27 @@ export function WereadSettingsPanel(): JSX.Element {
     }
   }
 
+  /** Open the host OS folder chooser and apply the picked path. */
+  const pickFolder = async (apply: (p: string) => void): Promise<void> => {
+    setBusy(true)
+    setMessage('')
+    try {
+      const result = await api.pickDir()
+      if (result.ok && result.path !== undefined) {
+        apply(result.path)
+        setMessage('已选择文件夹：' + result.path)
+      } else if (result.cancelled === true) {
+        setMessage('已取消选择。')
+      } else {
+        setMessage(result.message ?? '无法弹出文件夹选择（当前环境不支持），请手动输入路径。')
+      }
+    } catch (error) {
+      setMessage('选择文件夹失败: ' + String(error instanceof Error ? error.message : error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const runSync = async (): Promise<void> => {
     setBusy(true)
     setMessage('同步中…')
@@ -367,7 +388,10 @@ export function WereadSettingsPanel(): JSX.Element {
             <option value="notion">Notion</option>
           </select>
           {exportDest === 'local' && (
-            <input style={s.input} placeholder="本地导出目录（绝对路径，可留空导出时填）" value={localExportDir} onChange={(e) => setLocalExportDir(e.target.value)} />
+            <>
+              <input style={s.input} placeholder="本地导出目录（绝对路径，可留空导出时填）" value={localExportDir} onChange={(e) => setLocalExportDir(e.target.value)} />
+              <button style={s.button} onClick={() => void pickFolder((p) => setLocalExportDir(p))} disabled={busy}>选择文件夹…</button>
+            </>
           )}
         </div>
         <div style={s.row}>
@@ -447,7 +471,10 @@ export function WereadSettingsPanel(): JSX.Element {
             <option value="notion">Notion</option>
           </select>
           {destNow === 'local' && (
-            <input style={s.input} placeholder="导出路径（必填）" value={localDirNow} onChange={(e) => setLocalDirNow(e.target.value)} />
+            <>
+              <input style={s.input} placeholder="导出路径（必填）" value={localDirNow} onChange={(e) => setLocalDirNow(e.target.value)} />
+              <button style={s.button} onClick={() => void pickFolder((p) => setLocalDirNow(p))} disabled={busy}>选择文件夹…</button>
+            </>
           )}
           {destNow === 'flomo' && (
             <input style={{ ...s.input, width: '150px' }} placeholder="本次标签（#）" value={flomoTagNow} onChange={(e) => setFlomoTagNow(e.target.value)} />

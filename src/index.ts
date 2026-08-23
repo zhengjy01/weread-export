@@ -18,7 +18,7 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { WereadStore } from './store.ts'
 import { buildTools } from './tools.ts'
-import { makeRoutes } from './routes.ts'
+import { makeRoutes, type NativeDirectoryPicker } from './routes.ts'
 
 /** Stable cordis plugin name. */
 export const name = 'weread'
@@ -88,7 +88,15 @@ export function apply(ctx: Context, config?: Config): void {
     )
     disposeRoutes = ctx.effect(
       () => {
-        const disposers = makeRoutes({ store }).map((route) => ctx.webServer.register(route))
+        // The directory picker is optional (hosts without the service fall
+        // back to manual path input); grab it defensively.
+        let picker: NativeDirectoryPicker | undefined
+        try {
+          picker = (ctx as unknown as { directoryPicker?: NativeDirectoryPicker }).directoryPicker
+        } catch {
+          picker = undefined
+        }
+        const disposers = makeRoutes({ store, directoryPicker: picker }).map((route) => ctx.webServer.register(route))
         return () => { for (const dispose of disposers) dispose() }
       },
       'weread-export: routes',

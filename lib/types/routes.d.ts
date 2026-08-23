@@ -7,6 +7,15 @@
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { WereadStore } from './store.ts';
+/** Minimal host directory-picker seam (duck-typed; native = OS folder chooser). */
+export interface NativeDirectoryPicker {
+    capability(): {
+        kind: 'native';
+        pick(signal: AbortSignal): Promise<string | null>;
+    } | {
+        kind: 'browse';
+    };
+}
 /** Route paths. */
 export declare const WEREAD_API: {
     readonly config: "/api/weread-export/config";
@@ -16,10 +25,13 @@ export declare const WEREAD_API: {
     readonly export: "/api/weread-export/export";
     readonly flomo: "/api/weread-export/flomo";
     readonly books: "/api/weread-export/books";
+    readonly pickDir: "/api/weread-export/pick-dir";
 };
 /** Route handler context. */
 export interface RouteContext {
     store: WereadStore;
+    /** Host directory picker (native = OS folder chooser); optional. */
+    directoryPicker?: NativeDirectoryPicker | undefined;
 }
 /**
  * Build every /api/weread-export route (exact paths).
@@ -41,6 +53,10 @@ export declare function makeRoutes(deps: RouteContext): ({
 } | {
     kind: "exact";
     path: "/api/weread-export/sync";
+    handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+} | {
+    kind: "exact";
+    path: "/api/weread-export/pick-dir";
     handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 } | {
     kind: "exact";

@@ -128,6 +128,11 @@ export class WereadApi {
     return data.books ?? []
   }
 
+  /** Open the host OS folder chooser; resolves the picked absolute path. */
+  async pickDir(): Promise<{ ok: boolean; path?: string; cancelled?: boolean; unsupported?: boolean; message?: string }> {
+    return request<{ ok: boolean; path?: string; cancelled?: boolean; unsupported?: boolean; message?: string }>('/api/weread-export/pick-dir', { method: 'POST' })
+  }
+
   async exportFlomo(bookId: string, tag: string, limit = 20): Promise<WereadFlomoResult> {
     return request<WereadFlomoResult>('/api/weread-export/flomo', {
       method: 'POST',

@@ -66,6 +66,14 @@ export declare class WereadApi {
     }>;
     sync(): Promise<WereadSyncResult>;
     books(): Promise<WereadBook[]>;
+    /** Open the host OS folder chooser; resolves the picked absolute path. */
+    pickDir(): Promise<{
+        ok: boolean;
+        path?: string;
+        cancelled?: boolean;
+        unsupported?: boolean;
+        message?: string;
+    }>;
     exportFlomo(bookId: string, tag: string, limit?: number): Promise<WereadFlomoResult>;
     /** Multi-target export: flomo / local / notion with optional prompt. */
     exportData(body: Record<string, unknown>): Promise<WereadFlomoResult>;
