@@ -24,7 +24,7 @@ import { makeRoutes, type NativeDirectoryPicker } from './routes.ts'
 export const name = 'weread'
 
 /** Services required before the weread surfaces can mount. */
-export const inject = ['tools', 'systemPrompt', 'webServer']
+export const inject = ['tools', 'systemPrompt', 'webServer', 'directoryPicker']
 
 /** Order of the announcement section within the tool-guidance band. */
 const SECTION_ORDER = 160
@@ -90,10 +90,12 @@ export function apply(ctx: Context, config?: Config): void {
       () => {
         // The directory picker is optional and may be registered after this
         // plugin's apply — resolve it lazily per request instead.
+        // 'directoryPicker' is injected, so it is guaranteed available here.
         const getPicker = (): NativeDirectoryPicker | undefined => {
           try {
             return (ctx as unknown as { directoryPicker?: NativeDirectoryPicker }).directoryPicker
-          } catch {
+          } catch (error) {
+            console.error('[weread-export] directoryPicker access failed:', error)
             return undefined
           }
         }
