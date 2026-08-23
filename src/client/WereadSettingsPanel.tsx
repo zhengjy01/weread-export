@@ -119,7 +119,7 @@ function statusText(view: WereadStatusView | null): string {
     ' · 默认标签 #' + view.defaultFlomoTag +
     '\nprompt 处理 ' + (view.usePrompt ? '开（' + (view.llmConfigured ? view.llmModel + ' @ ' + view.llmBaseUrl : 'LLM 未配置') + '）' : '关') +
     ' · Notion ' + (view.notionConfigured ? '已配置' + (view.notionTargetPageId !== '' ? ' + 目标页' : '（未填目标页）') : '未配置') +
-    ' · flomo ' + (view.flomoConfigured ? '已配置' : '未配置') +
+    ' · flomo ' + (view.flomoConfigured ? '已配置（' + view.flomoSource + ' ' + view.flomoMasked + '）' : '未配置') +
     ' · 缓存书架 ' + view.cachedShelfBooks + ' 本 / 有笔记 ' + view.cachedNoteBooks + ' 本' +
     (view.lastSyncAt !== '' ? ' · 最近同步 ' + view.lastSyncAt : '')
   )
@@ -135,6 +135,8 @@ export function WereadSettingsPanel(): JSX.Element {
   const [exportDest, setExportDest] = useState('flomo')
   const [localExportDir, setLocalExportDir] = useState('')
   const [notionToken, setNotionToken] = useState('')
+  const [flomoWebhookUrl, setFlomoWebhookUrl] = useState('')
+  const [flomoApiKey, setFlomoApiKey] = useState('')
   const [notionTargetPageId, setNotionTargetPageId] = useState('')
   const [usePrompt, setUsePrompt] = useState(false)
   const [llmBaseUrl, setLlmBaseUrl] = useState('')
@@ -217,19 +219,38 @@ export function WereadSettingsPanel(): JSX.Element {
       if (localExportDir.trim() !== '') patch.localExportDir = localExportDir.trim()
       if (notionToken.trim() !== '') patch.notionToken = notionToken.trim()
       if (notionTargetPageId.trim() !== '') patch.notionTargetPageId = notionTargetPageId.trim()
+      if (flomoWebhookUrl.trim() !== '') patch.flomoWebhookUrl = flomoWebhookUrl.trim()
+      if (flomoApiKey.trim() !== '') patch.flomoApiKey = flomoApiKey.trim()
       patch.usePrompt = usePrompt
       if (llmBaseUrl.trim() !== '') patch.llmBaseUrl = llmBaseUrl.trim()
       if (llmApiKey.trim() !== '') patch.llmApiKey = llmApiKey.trim()
       if (llmModel.trim() !== '') patch.llmModel = llmModel.trim()
       if (exportPrompt.trim() !== '') patch.exportPrompt = exportPrompt
       const next: WereadConfigView = await api.setConfig(patch)
-      setView({ ...next, flomoConfigured: view?.flomoConfigured ?? false, cachedShelfBooks: view?.cachedShelfBooks ?? 0, cachedNoteBooks: view?.cachedNoteBooks ?? 0, cacheUpdatedAt: view?.cacheUpdatedAt ?? '' })
+      const status = await api.getStatus()
+      setView(status)
       setMessage(next.configured ? '配置已保存。' : '配置未保存完整：缺少 API Key。')
       setApiKey('')
       setNotionToken('')
       setLlmApiKey('')
+      setFlomoWebhookUrl('')
+      setFlomoApiKey('')
     } catch (error) {
       setMessage('保存失败: ' + String(error instanceof Error ? error.message : error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const clearFlomoConfig = async (): Promise<void> => {
+    setBusy(true)
+    setMessage('')
+    try {
+      await api.setConfig({ flomoReset: true })
+      setView(await api.getStatus())
+      setMessage('已清除 flomo 配置。')
+    } catch (error) {
+      setMessage('清除失败: ' + String(error instanceof Error ? error.message : error))
     } finally {
       setBusy(false)
     }
@@ -240,7 +261,7 @@ export function WereadSettingsPanel(): JSX.Element {
     setMessage('')
     try {
       const next: WereadConfigView = await api.setConfig({ reset: true })
-      setView({ ...next, flomoConfigured: view?.flomoConfigured ?? false, cachedShelfBooks: view?.cachedShelfBooks ?? 0, cachedNoteBooks: view?.cachedNoteBooks ?? 0, cacheUpdatedAt: view?.cacheUpdatedAt ?? '' })
+      setView({ ...next, flomoConfigured: view?.flomoConfigured ?? false, flomoSource: view?.flomoSource ?? '', flomoMasked: view?.flomoMasked ?? '', flomoConfigPath: view?.flomoConfigPath ?? '', cachedShelfBooks: view?.cachedShelfBooks ?? 0, cachedNoteBooks: view?.cachedNoteBooks ?? 0, cacheUpdatedAt: view?.cacheUpdatedAt ?? '' })
       setMessage('已清除配置。')
     } catch (error) {
       setMessage('清除失败: ' + String(error instanceof Error ? error.message : error))
@@ -358,7 +379,26 @@ export function WereadSettingsPanel(): JSX.Element {
       </div>
 
       <div style={s.group}>
-        <div style={s.groupTitle}>② Notion 导出</div>
+        <div style={s.groupTitle}>② flomo 导出</div>
+        <div style={view?.flomoConfigured === false ? s.statusWarn : s.status}>
+          {view === null
+            ? '加载中…'
+            : (view.flomoConfigured
+              ? '已配置：' + view.flomoSource + ' ' + view.flomoMasked + '（与「Flomo」面板共享，文件 ' + view.flomoConfigPath + '）'
+              : '未配置 — 在 flomo 设置页（flomoapp.com/mine?source=incoming_webhook）获取 API URL，粘贴到下方。')}
+        </div>
+        <div style={s.row}>
+          <input style={s.input} type="password" placeholder="flomo API URL（https://flomoapp.com/iwh/xxxx）" value={flomoWebhookUrl} onChange={(e) => setFlomoWebhookUrl(e.target.value)} />
+        </div>
+        <div style={s.row}>
+          <input style={s.input} type="password" placeholder="或 flomo API Key（新版，与 URL 二选一）" value={flomoApiKey} onChange={(e) => setFlomoApiKey(e.target.value)} />
+          <button style={s.button} onClick={() => void saveConfig()} disabled={busy}>保存 flomo</button>
+          <button style={s.button} onClick={() => void clearFlomoConfig()} disabled={busy}>清除</button>
+        </div>
+      </div>
+
+      <div style={s.group}>
+        <div style={s.groupTitle}>③ Notion 导出</div>
         <div style={s.row}>
           <input style={s.input} type="password" placeholder="Notion Integration Token（notion.so/my-integrations 创建）" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} />
         </div>
@@ -368,7 +408,7 @@ export function WereadSettingsPanel(): JSX.Element {
       </div>
 
       <div style={s.group}>
-        <div style={s.groupTitle}>③ AI · prompt 处理（导出前用 LLM 按模板整理）</div>
+        <div style={s.groupTitle}>④ AI · prompt 处理（导出前用 LLM 按模板整理）</div>
         <div style={s.row}>
           <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
             <input type="checkbox" checked={usePrompt} onChange={(e) => setUsePrompt(e.target.checked)} />
@@ -389,7 +429,7 @@ export function WereadSettingsPanel(): JSX.Element {
       </div>
 
       <div style={s.group}>
-        <div style={s.groupTitle}>④ 快捷导出</div>
+        <div style={s.groupTitle}>⑤ 快捷导出</div>
         <div style={s.row}>
           <span style={s.label}>选择书籍</span>
           <select style={s.select} value={bookId} onChange={(e) => setBookId(e.target.value)} disabled={books.length === 0}>

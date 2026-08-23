@@ -11,6 +11,7 @@ import {
   formatDate, formatDuration, formatRating, deepLink, buildNotesMarkdown, buildFlomoMemo, buildFlomoMemos,
   emptyCache, readCache, writeCache, buildTaggedContent, shelfLine, notebookLines,
   buildExportMarkdown, chunkText, toNotionBlocks, normalizeNotionPageId, renderPrompt,
+  readFlomoCredentials, writeFlomoCredentials, flomoStatus,
 } from '../lib/index.js'
 
 let failures = 0
@@ -159,6 +160,18 @@ check('read/write/empty', async () => {
     delete process.env.DSH_WEREAD_CACHE
     await rm(dir, { recursive: true, force: true })
   }
+})
+
+console.log('flomo shared credentials')
+check('status shape + empty-read safe', async () => {
+  // Never touch the real ~/.dsh/dsh-flomo.json: assert the view shape and
+  // that reading an absent/missing file yields empty credentials safely.
+  const status = await flomoStatus()
+  assert.equal(typeof status.configured, 'boolean')
+  assert.equal(status.configPath.includes('dsh-flomo.json'), true)
+  const creds = await readFlomoCredentials()
+  assert.equal(typeof creds.webhookUrl, 'string')
+  assert.equal(typeof creds.apiKey, 'string')
 })
 
 console.log('store')

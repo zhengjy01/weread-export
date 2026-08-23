@@ -23,6 +23,9 @@ export interface WereadConfigView {
 /** Status view with cache + flomo stats. */
 export interface WereadStatusView extends WereadConfigView {
     flomoConfigured: boolean;
+    flomoSource: string;
+    flomoMasked: string;
+    flomoConfigPath: string;
     cachedShelfBooks: number;
     cachedNoteBooks: number;
     cacheUpdatedAt: string;

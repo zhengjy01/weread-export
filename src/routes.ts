@@ -10,7 +10,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WereadStore } from './store.ts'
 import { WereadApi } from './api.ts'
 import { readCache, doSync } from './cache.ts'
-import { resolveFlomoUrl } from './flomo.ts'
+import { readFlomoCredentials, writeFlomoCredentials, flomoStatus } from './flomo.ts'
 import { runExport, type ExportRequest, type ToolContext } from './tools.ts'
 
 /** Route paths. */
@@ -124,7 +124,29 @@ export function makeRoutes(deps: RouteContext) {
             writeJson(res, 400, { error: 'invalid JSON body' })
             return
           }
-          writeJson(res, 200, await store.patch(body))
+          // Flomo credentials are shared with the dsh-flomo plugin: saving
+          // them here writes ~/.dsh/dsh-flomo.json (one place, both plugins).
+          const hasFlomoFields = body.flomoWebhookUrl !== undefined || body.flomoApiKey !== undefined || body.flomoReset === true
+          if (hasFlomoFields) {
+            const creds = await readFlomoCredentials()
+            const next = { ...creds }
+            if (body.flomoReset === true) {
+              next.webhookUrl = ''
+              next.apiKey = ''
+            } else {
+              if (typeof body.flomoWebhookUrl === 'string') next.webhookUrl = body.flomoWebhookUrl.trim()
+              if (typeof body.flomoApiKey === 'string') next.apiKey = body.flomoApiKey.trim()
+            }
+            await writeFlomoCredentials(next)
+            const rest = { ...body }
+            delete rest.flomoWebhookUrl
+            delete rest.flomoApiKey
+            delete rest.flomoReset
+            await store.patch(rest)
+          } else {
+            await store.patch(body)
+          }
+          writeJson(res, 200, await store.view())
           return
         }
         writeJson(res, 405, { error: `method not allowed: ${method}` })
@@ -137,11 +159,14 @@ export function makeRoutes(deps: RouteContext) {
         if (!guard(req, res, 'GET')) return
         const view = await store.view()
         const cache = await readCache()
-        const flomoOk = await resolveFlomoUrl().then((url) => url !== null).catch(() => false)
+        const flomo = await flomoStatus()
         const noteBooks = cache.notebooks.filter((b) => (b.reviewCount ?? 0) + (b.noteCount ?? 0) + (b.bookmarkCount ?? 0) > 0).length
         writeJson(res, 200, {
           ...view,
-          flomoConfigured: flomoOk,
+          flomoConfigured: flomo.configured,
+          flomoSource: flomo.source,
+          flomoMasked: flomo.masked,
+          flomoConfigPath: flomo.configPath,
           cachedShelfBooks: cache.shelfBooks.length,
           cachedNoteBooks: noteBooks,
           cacheUpdatedAt: cache.updatedAt,

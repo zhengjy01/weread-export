@@ -8,7 +8,7 @@
  * store's defaultFlomoTag (defaults to 微信读书).
  */
 
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 
@@ -27,9 +27,62 @@ export interface FlomoCredentials {
   webhookUrl: string
 }
 
+/** Public flomo status view (never the full credential). */
+export interface FlomoStatusView {
+  configured: boolean
+  /** 'webhookUrl' | 'apiKey' | '' */
+  source: string
+  masked: string
+  configPath: string
+}
+
+/** Mask a credential for display, keeping only the head and tail. */
+function mask(value: string): string {
+  if (!value) return ''
+  if (value.length <= 8) return value.slice(0, 2) + '****'
+  return value.slice(0, 4) + '****' + value.slice(-4)
+}
+
 /** Whether flomo credentials exist on this machine. */
 export async function flomoConfigured(): Promise<boolean> {
   return (await loadFlomoCredentials()).resolved !== null
+}
+
+/** Public flomo status: source + masked credential. */
+export async function flomoStatus(): Promise<FlomoStatusView> {
+  const creds = await readFlomoCredentials()
+  const source = creds.webhookUrl !== '' ? 'webhookUrl' : (creds.apiKey !== '' ? 'apiKey' : '')
+  return {
+    configured: source !== '',
+    source,
+    masked: source === 'webhookUrl' ? mask(creds.webhookUrl) : (source === 'apiKey' ? mask(creds.apiKey) : ''),
+    configPath: FLOMO_CONFIG_FILE,
+  }
+}
+
+/** Read the persisted flomo credentials (never throws). */
+export async function readFlomoCredentials(): Promise<FlomoCredentials> {
+  let record: Record<string, unknown> = {}
+  try {
+    const raw = await readFile(FLOMO_CONFIG_FILE, 'utf8')
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed === 'object' && parsed !== null) record = parsed as Record<string, unknown>
+  } catch {
+    // Missing or unreadable: not configured.
+  }
+  return {
+    apiKey: typeof record.apiKey === 'string' ? record.apiKey : '',
+    webhookUrl: typeof record.webhookUrl === 'string' ? record.webhookUrl : '',
+  }
+}
+
+/**
+ * Write flomo credentials to the shared ~/.dsh/dsh-flomo.json (mode 0600).
+ * Shared with the dsh-flomo plugin — one place, both plugins use it.
+ */
+export async function writeFlomoCredentials(next: FlomoCredentials): Promise<void> {
+  await mkdir(path.dirname(FLOMO_CONFIG_FILE), { recursive: true })
+  await writeFile(FLOMO_CONFIG_FILE, JSON.stringify(next, null, 2), { mode: 0o600 })
 }
 
 /** Load and resolve the flomo send URL (null when not configured). */
@@ -39,17 +92,10 @@ export async function resolveFlomoUrl(): Promise<string | null> {
 
 /** Read ~/.dsh/dsh-flomo.json and resolve the request URL. */
 async function loadFlomoCredentials(): Promise<{ resolved: string | null }> {
-  let record: Record<string, unknown> = {}
-  try {
-    const raw = await readFile(FLOMO_CONFIG_FILE, 'utf8')
-    const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed === 'object' && parsed !== null) record = parsed as Record<string, unknown>
-  } catch {
-    // Missing or unreadable: not configured.
-  }
-  const webhook = typeof record.webhookUrl === 'string' ? record.webhookUrl.trim() : ''
+  const creds = await readFlomoCredentials()
+  const webhook = creds.webhookUrl.trim()
   if (webhook) return { resolved: webhook }
-  const key = typeof record.apiKey === 'string' ? record.apiKey.trim() : ''
+  const key = creds.apiKey.trim()
   if (key) return { resolved: FLOMO_API_ENDPOINT + '?apiKey=' + encodeURIComponent(key) }
   return { resolved: null }
 }

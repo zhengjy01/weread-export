@@ -37,7 +37,7 @@ Key 存于 `~/.dsh/weread-export.json`（权限 0600），同步快照存于 `~/
 | `weread_readdata` | 阅读统计（weekly/monthly/annually/overall） |
 | `weread_sync` | 拉取书架 + 笔记本概览到本地缓存 |
 | `weread_export` | 多目标导出：`dest=flomo`（默认）/`local`（本地 Markdown，`localDir` 必填）/`notion`（本插件独立 Token+目标页）；可按 `exportPrompt`/`usePrompt` 用 LLM 按 prompt 整理后导出，`limit` 控制条数 |
-| `weread_flomo` | flomo 快捷导出：#标签可自定义；默认按配置导出条数（0=全部，超长自动拆多条 MEMO），`limit` 可临时覆盖 |
+| `weread_flomo` | flomo 快捷导出：#标签可自定义；默认按配置导出条数（0=全部，超长自动拆多条 MEMO），`limit` 可临时覆盖。flomo 凭据可在本插件面板「flomo 导出」区直接配置（与 dsh-flomo 共享） |
 
 ## 常见问题
 

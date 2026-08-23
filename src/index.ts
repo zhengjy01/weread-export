@@ -110,7 +110,7 @@ export { WereadStore, mask, configPath, cachePath, DEFAULT_EXPORT_PROMPT, type W
 export { WereadApi, WereadApiError, WEREAD_GATEWAY, SKILL_VERSION, type BookInfo, type ShelfBook, type NotebookEntry, type Highlight, type MineReviewEntry } from './api.ts'
 export { wereadStatusTool, wereadConfigTool, wereadSearchTool, wereadBookTool, wereadShelfTool, wereadNotesTool, wereadReaddataTool, wereadSyncTool, wereadExportTool, wereadFlomoTool, runExport, buildTools, type ToolContext, type ExportRequest, type ExportResult } from './tools.ts'
 export { doSync, readCache, writeCache, emptyCache, buildNotesMarkdown, buildFlomoMemo, buildFlomoMemos, FLOMO_MAX_CHARS, formatDate, formatDuration, formatRating, dateLabel, deepLink, shelfLine, notebookLines, type WereadCache } from './cache.ts'
-export { resolveFlomoUrl, flomoConfigured, postMemo, buildTaggedContent, FLOMO_CONFIG_FILE } from './flomo.ts'
+export { resolveFlomoUrl, flomoConfigured, flomoStatus, readFlomoCredentials, writeFlomoCredentials, postMemo, buildTaggedContent, FLOMO_CONFIG_FILE, type FlomoStatusView, type FlomoCredentials } from './flomo.ts'
 export { chatComplete, renderPrompt, llmConfigured, type LlmConfig } from './llm.ts'
 export { buildExportMarkdown, processWithPrompt, exportToLocal, exportToNotion, exportToFlomo, chunkText, toNotionBlocks, normalizeNotionPageId, NOTION_API, NOTION_VERSION } from './export.ts'
 export { makeRoutes, WEREAD_API } from './routes.ts'
