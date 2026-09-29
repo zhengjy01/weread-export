@@ -140,9 +140,25 @@ export async function postMemo(url: string, content: string): Promise<FlomoSendR
   return { ok: true, message: 'flomo 已响应: ' + body.slice(0, 300) }
 }
 
+/**
+ * Full-width number sign (U+FF03). It reads as a hash mark but is a different
+ * code point from the ASCII '#', so flomo's tag parser never turns it into a tag.
+ */
+export const HASH_SAFE = '＃'
+
+/**
+ * Replace every ASCII `#` in a memo body with the full-width `＃`. flomo treats
+ * `#词` as a tag; book titles / highlights / thoughts may contain `#`, so the
+ * body must be hash-free while staying readable (`#1` survives as `＃1`). The
+ * only ASCII-hash tags are the configured one(s), appended by buildTaggedContent.
+ */
+export function escapeHashes(content: string): string {
+  return (content || '').replace(/#/g, HASH_SAFE)
+}
+
 /** Append normalized #tags to a memo body. */
 export function buildTaggedContent(content: string, tags: string): string {
-  const body = (content || '').trim()
+  const body = escapeHashes(content).trim()
   const tagList = (tags || '').split(/[\s,，;；]+/).map((t) => t.trim().replace(/^#+/, '')).filter(Boolean)
   const suffix = tagList.map((t) => '#' + t).join(' ')
   return suffix ? body + ' ' + suffix : body

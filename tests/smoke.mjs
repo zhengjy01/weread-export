@@ -130,6 +130,9 @@ check('renderPrompt', () => {
 check('buildTaggedContent', () => {
   assert.equal(buildTaggedContent('hello', '读书笔记 微信读书'), 'hello #读书笔记 #微信读书')
   assert.equal(buildTaggedContent('hello', '#读书笔记'), 'hello #读书笔记')
+  // 正文半角 # 一律换成全角 ＃（flomo 只认半角 #，否则会污染标签）
+  assert.equal(buildTaggedContent('第 #1 章 与 #重点', '读书笔记'), '第 ＃1 章 与 ＃重点 #读书笔记')
+  assert.ok(!buildTaggedContent('PR #91', '').includes('#'))
 })
 check('shelfLine finishReading 1/0', () => {
   assert.ok(shelfLine({ bookId: '1', title: 'A', author: 'B', finishReading: 1 }, new Map()).includes('已读完'))

@@ -46,5 +46,17 @@ export interface FlomoSendResult {
  * rejects only for transport-level failures.
  */
 export declare function postMemo(url: string, content: string): Promise<FlomoSendResult>;
+/**
+ * Full-width number sign (U+FF03). It reads as a hash mark but is a different
+ * code point from the ASCII '#', so flomo's tag parser never turns it into a tag.
+ */
+export declare const HASH_SAFE = "\uFF03";
+/**
+ * Replace every ASCII `#` in a memo body with the full-width `＃`. flomo treats
+ * `#词` as a tag; book titles / highlights / thoughts may contain `#`, so the
+ * body must be hash-free while staying readable (`#1` survives as `＃1`). The
+ * only ASCII-hash tags are the configured one(s), appended by buildTaggedContent.
+ */
+export declare function escapeHashes(content: string): string;
 /** Append normalized #tags to a memo body. */
 export declare function buildTaggedContent(content: string, tags: string): string;

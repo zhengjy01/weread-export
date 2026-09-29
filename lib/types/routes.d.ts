@@ -18,6 +18,7 @@ export interface NativeDirectoryPicker {
 }
 /** Route paths. */
 export declare const WEREAD_API: {
+    readonly probe: "/api/weread-export/probe";
     readonly config: "/api/weread-export/config";
     readonly status: "/api/weread-export/status";
     readonly test: "/api/weread-export/test";
@@ -44,6 +45,10 @@ export interface RouteContext {
  * @returns the route list.
  */
 export declare function makeRoutes(deps: RouteContext): ({
+    kind: "exact";
+    path: "/api/weread-export/probe";
+    handler: (req: IncomingMessage, res: ServerResponse) => void;
+} | {
     kind: "exact";
     path: "/api/weread-export/config";
     handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>;

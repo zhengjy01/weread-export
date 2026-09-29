@@ -21,6 +21,7 @@ export interface NativeDirectoryPicker {
 
 /** Route paths. */
 export const WEREAD_API = {
+  probe: '/api/weread-export/probe',
   config: '/api/weread-export/config',
   status: '/api/weread-export/status',
   test: '/api/weread-export/test',
@@ -121,6 +122,16 @@ export function makeRoutes(deps: RouteContext) {
   }
 
   return [
+    {
+      // Tiny liveness probe: the release-kit portability gate (and any external
+      // watcher) calls it to confirm the plugin really mounted. Read-only.
+      kind: 'exact' as const,
+      path: WEREAD_API.probe,
+      handler: (req: IncomingMessage, res: ServerResponse) => {
+        if (!guard(req, res, 'GET')) return
+        writeJson(res, 200, { ok: true, plugin: 'weread-export' })
+      },
+    },
     {
       kind: 'exact' as const,
       path: WEREAD_API.config,
